@@ -1,9 +1,18 @@
 --ConVar syncing
+CreateConVar("ttt2_defective_inform_everyone", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_corpse_reveal_mode", "0", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_special_det_handling_mode", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 
 hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 	tbl[ROLE_DEFECTIVE] = tbl[ROLE_DEFECTIVE] or {}
+	
+	--# Send a popup message if there's a defective at the start of the round?
+	--  ttt2_defective_inform_everyone [0/1] (default: 1)
+	table.insert(tbl[ROLE_DEFECTIVE], {
+		cvar = "ttt2_defective_inform_everyone",
+		checkbox = true,
+		desc = "ttt2_defective_inform_everyone (Def: 1)"
+	})
 	
 	--# When should def's true role be revealed?
 	--  ttt2_defective_corpse_reveal_mode [0..3] (default: 0)
@@ -45,10 +54,14 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 end)
 
 hook.Add("TTT2SyncGlobals", "AddDefectiveGlobals", function()
+	SetGlobalBool("ttt2_defective_inform_everyone", GetConVar("ttt2_defective_inform_everyone"):GetBool())
 	SetGlobalInt("ttt2_defective_corpse_reveal_mode", GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt())
 	SetGlobalInt("ttt2_defective_special_det_handling_mode", GetConVar("ttt2_defective_special_det_handling_mode"):GetInt())
 end)
 
+cvars.AddChangeCallback("ttt2_defective_inform_everyone", function(name, old, new)
+	SetGlobalBool("ttt2_defective_inform_everyone", tobool(tonumber(new)))
+end)
 cvars.AddChangeCallback("ttt2_defective_corpse_reveal_mode", function(name, old, new)
 	SetGlobalInt("ttt2_defective_corpse_reveal_mode", tonumber(new))
 end)

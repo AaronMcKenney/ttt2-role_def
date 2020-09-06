@@ -3,6 +3,7 @@ if SERVER then
 	--resource.AddFile("materials/vgui/ttt/dynamic/roles/icon_det.vmt")
 	--The Defective's icon
 	resource.AddFile("materials/vgui/ttt/dynamic/roles/icon_def.vmt")
+	util.AddNetworkString("TTT2DefectiveInformEveryone")
 end
 
 function ROLE:PreInitialize()
@@ -162,6 +163,11 @@ if SERVER then
 			for _, ply in pairs(player.GetAll()) do
 				JamDetective(ply, ply:GetBaseRole(), ply:GetSubRole())
 			end
+		end
+		
+		if GetConVar("ttt2_defective_inform_everyone"):GetBool() and AtLeastOneDefExists() then
+			net.Start("TTT2DefectiveInformEveryone")
+			net.Broadcast()
 		end
 	end)
 	
@@ -397,5 +403,11 @@ if SERVER then
 				SendPlayerToEveryone(ply)
 			end
 		end
+	end)
+end
+
+if CLIENT then
+	net.Receive("TTT2DefectiveInformEveryone", function()
+		EPOP:AddMessage({text = LANG.GetTranslation("inform_everyone_" .. DEFECTIVE.name), color = DEFECTIVE.color}, "", 4)
 	end)
 end
