@@ -53,7 +53,7 @@ if SERVER then
 	--ttt2_defective_corpse_reveal_mode enum
 	local REVEAL_MODE = {NEVER = 0, ALL_DEAD = 1, ON_DEATH = 2}
 	--ttt2_defective_det_handling_mode enum
-	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, MIMIC = 2}
+	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2, MIMIC = 3}
 	
 	local function AtLeastOneDefExists()
 		for _, ply in pairs(player.GetAll()) do
@@ -61,6 +61,8 @@ if SERVER then
 				return true
 			end
 		end
+		
+		return false
 	end
 	
 	local function AtLeastOneDefLives()
@@ -69,6 +71,8 @@ if SERVER then
 				return true
 			end
 		end
+		
+		return false
 	end
 	
 	local function AtLeastOneDefOrDetLives()
@@ -78,6 +82,8 @@ if SERVER then
 				return true
 			end
 		end
+		
+		return false
 	end
 	
 	local function CanADeadDefBeRevealed()
@@ -129,19 +135,24 @@ if SERVER then
 	
 	local function JamDetective(ply, base_role, sub_role)
 		if ply:IsTerror() and ply:Alive() and base_role == ROLE_DETECTIVE and sub_role ~= ROLE_DETECTIVE then
+			local old_sub_role = ply:GetSubRole()
+			
 			--This timer is a hack to give time for the player to finish setup for their current role before we change it to their new role. It won't work if the current role takes a lot of time to setup.
 			--Specifically prevents situations where a sniffer is given their lens, but then changes to a detective before the lens can be properly removed.
 			timer.Simple(0.1, function()
-				--Their former roles may be given back to them, depending on ttt2_defective_reveal_true_role
 				ply:SetRole(ROLE_DETECTIVE)
 				--Call this function whenever a role change occurs during an active round.
 				SendFullStateUpdate()
+				
+				--Keep track of special det's role, in case the server is configured or reconfigured to potentially give back the role (JAM_TEMP)
+				ply.det_role_masked_by_def = old_sub_role
 			end)
 		end
 	end
 	
 	hook.Add("TTTBeginRound", "DefectiveBeginRound", function()
-		if GetConVar("ttt2_defective_special_det_handling_mode"):GetInt() == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists() then
+		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
+		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
 			--Force all special detectives to be normal detectives, in case they have some special equipment or ability that could instantly be used to make them trustworthy.
 			for _, ply in pairs(player.GetAll()) do
 				JamDetective(ply, ply:GetBaseRole(), ply:GetSubRole())
@@ -150,8 +161,19 @@ if SERVER then
 	end)
 	
 	hook.Add("TTT2UpdateSubrole", "DefectiveUpdateSubrole", function(self, oldSubrole, subrole)
-		if GetConVar("ttt2_defective_special_det_handling_mode"):GetInt() == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists() then
-			JamDetective(self, roles.GetByIndex(subrole):GetBaseRole(), subrole)
+		local base_role = roles.GetByIndex(subrole):GetBaseRole()
+		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
+		
+		if self.det_role_masked_by_def and self.det_role_masked_by_def ~= subrole then
+			--Remove the special det's "true role" if they convert to anything other than their true role.
+			--Ex. Infected, Deputy, Sidekick, etc.
+			self.det_role_masked_by_def = nil
+		end
+		
+		--We do not immediately jam all special dets if a def shows up in the middle of the round, as that would immediately give away that they are a def.
+		--Only jam special dets that show up when a def is currently in play.
+		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
+			JamDetective(self, base_role, subrole)
 		end
 	end)
 	
@@ -245,30 +267,26 @@ if SERVER then
 		end
 	end)
 	
-	--TODO: REMOVE (Not supporting giving players their roles back right now)
-	--hook.Add("TTT2PostPlayerDeath", "DefectivePostPlayerDeath", function(victim, inflictor, attacker)
-	--	if GetRoundState() ~= ROUND_ACTIVE or not (GetConVar("ttt2_defective_jam_special_roles"):GetBool() and GetConVar("ttt2_defective_reveal_true_role"):GetBool()) then
-	--		return
-	--	end
-	--	
-	--	if not IsValid(victim) or not victim:IsPlayer() or not IsValid(attacker) or not attacker:IsPlayer() then
-	--		return
-	--	end
-	--	
-	--	if AtLeastOneDefOrDetLives() then
-	--		return
-	--	end
-	--	
-	--	--If all of the defectives/detectives are dead and the special detectives had their role jammed, we can give back their special roles if reveal_true_role is enabled
-	--	for _, ply in pairs(player.GetAll()) do
-	--		if ply:IsTerror() and ply:GetBaseRole() == ROLE_DETECTIVE and ply.former_det_role then
-	--			ply:SetRole(ply.former_det_role)
-	--			ply.former_det_role = nil
-	--			--Call this function whenever a role change occurs during an active round.
-	--			SendFullStateUpdate()
-	--		end
-	--	end
-	--end)
+	hook.Add("TTT2PostPlayerDeath", "DefectivePostPlayerDeath", function (victim, inflictor, attacker)
+		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(victim) or not victim:IsPlayer() then
+			return
+		end
+		
+		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
+		if m == SPECIAL_DET_MODE.JAM_TEMP and CanADeadDefBeRevealed() and not AtLeastOneDefLives() then
+			--If all defs are dead, give any remaining special dets their roles back.
+			for _, ply in pairs(player.GetAll()) do
+				if ply.det_role_masked_by_def then
+					ply:SetRole(ply.det_role_masked_by_def)
+					--Call this function whenever a role change occurs during an active round.
+					SendFullStateUpdate()
+					
+					--Remove this variable now that the special det has their role back.
+					ply.det_role_masked_by_def = nil
+				end
+			end
+		end
+	end)
 	
 	--Copied directly from TTT2/gamemodes/terrortown/gamemode/server/sv_corpse.lua
 	local function GiveFoundCredits(ply, rag, isLongRange)
