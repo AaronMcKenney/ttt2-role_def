@@ -1,5 +1,6 @@
 --ConVar syncing
 CreateConVar("ttt2_defective_inform_everyone", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
+CreateConVar("ttt2_defective_detective_immunity", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_corpse_reveal_mode", "0", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_special_det_handling_mode", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 
@@ -12,6 +13,14 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 		cvar = "ttt2_defective_inform_everyone",
 		checkbox = true,
 		desc = "ttt2_defective_inform_everyone (Def: 1)"
+	})
+	
+	--# Prevent all defectives and detectives from harming one another (unless all other members on their team are dead)?
+	--  ttt2_defective_detective_immunity [0/1] (default: 1)
+	table.insert(tbl[ROLE_DEFECTIVE], {
+		cvar = "ttt2_defective_detective_immunity",
+		checkbox = true,
+		desc = "ttt2_defective_detective_immunity (Def: 1)"
 	})
 	
 	--# When should def's true role be revealed?
@@ -55,12 +64,16 @@ end)
 
 hook.Add("TTT2SyncGlobals", "AddDefectiveGlobals", function()
 	SetGlobalBool("ttt2_defective_inform_everyone", GetConVar("ttt2_defective_inform_everyone"):GetBool())
+	SetGlobalBool("ttt2_defective_detective_immunity", GetConVar("ttt2_defective_detective_immunity"):GetBool())
 	SetGlobalInt("ttt2_defective_corpse_reveal_mode", GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt())
 	SetGlobalInt("ttt2_defective_special_det_handling_mode", GetConVar("ttt2_defective_special_det_handling_mode"):GetInt())
 end)
 
 cvars.AddChangeCallback("ttt2_defective_inform_everyone", function(name, old, new)
 	SetGlobalBool("ttt2_defective_inform_everyone", tobool(tonumber(new)))
+end)
+cvars.AddChangeCallback("ttt2_defective_detective_immunity", function(name, old, new)
+	SetGlobalBool("ttt2_defective_detective_immunity", tobool(tonumber(new)))
 end)
 cvars.AddChangeCallback("ttt2_defective_corpse_reveal_mode", function(name, old, new)
 	SetGlobalInt("ttt2_defective_corpse_reveal_mode", tonumber(new))

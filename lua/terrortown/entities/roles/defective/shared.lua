@@ -165,6 +165,7 @@ if SERVER then
 			end
 		end
 		
+		--Only send popup here, as opposed to also sending it on TTT2UpdateSubrole, as doing so could reveal the newly created defective.
 		if GetConVar("ttt2_defective_inform_everyone"):GetBool() and AtLeastOneDefExists() then
 			net.Start("TTT2DefectiveInformEveryone")
 			net.Broadcast()
@@ -236,6 +237,46 @@ if SERVER then
 		end
 	end)
 	
+	--Taken mostly from the Spy role.
+	hook.Add("TTT2ModifyRadarRole", "DefectiveModifyRadarRole", function(ply, target)
+		--Make defectives look like detectives when an innocent role uses a radar.
+		if not ply:HasTeam(TEAM_TRAITOR) and target:GetSubRole() == ROLE_DEFECTIVE then
+			return ROLE_DETECTIVE, TEAM_INNOCENT
+		end
+	end)
+	
+	hook.Add("EntityTakeDamage", "DefectiveTakeDamage", function(target, dmg_info)
+		local attacker = dmg_info:GetAttacker()
+		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(target) or not target:IsPlayer() or not IsValid(attacker) or not attacker:IsPlayer() then
+			return
+		end
+		
+		if GetConVar("ttt2_defective_detective_immunity"):GetBool() and AtLeastOneDefExists() and ((target:GetSubRole() == ROLE_DEFECTIVE or target:GetBaseRole() == ROLE_DETECTIVE) and (attacker:GetSubRole() == ROLE_DEFECTIVE or attacker:GetBaseRole() == ROLE_DETECTIVE)) then
+			dmg_info:SetDamage(0)
+		end
+	end)
+	
+	hook.Add("TTT2PostPlayerDeath", "DefectivePostPlayerDeath", function (victim, inflictor, attacker)
+		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(victim) or not victim:IsPlayer() then
+			return
+		end
+		
+		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
+		if m == SPECIAL_DET_MODE.JAM_TEMP and CanADeadDefBeRevealed() and not AtLeastOneDefLives() then
+			--If all defs are dead, give any remaining special dets their roles back.
+			for _, ply in pairs(player.GetAll()) do
+				if ply.det_role_masked_by_def then
+					ply:SetRole(ply.det_role_masked_by_def)
+					--Call this function whenever a role change occurs during an active round.
+					SendFullStateUpdate()
+					
+					--Remove this variable now that the special det has their role back.
+					ply.det_role_masked_by_def = nil
+				end
+			end
+		end
+	end)
+	
 	hook.Add("TTT2CheckCreditAward", "DefectiveCreditAward", function(victim, attacker)
 		if GetRoundState() ~= ROUND_ACTIVE then
 			return
@@ -267,35 +308,6 @@ if SERVER then
 			end
 			
 			LANG.Msg(GetRoleChatFilter(ROLE_DEFECTIVE, true), "credit_all", {num = amt})
-		end
-	end)
-	
-	--Taken mostly from the Spy role.
-	hook.Add("TTT2ModifyRadarRole", "DefectiveModifyRadarRole", function(ply, target)
-		--Make defectives look like detectives when an innocent role uses a radar.
-		if not ply:HasTeam(TEAM_TRAITOR) and target:GetSubRole() == ROLE_DEFECTIVE then
-			return ROLE_DETECTIVE, TEAM_INNOCENT
-		end
-	end)
-	
-	hook.Add("TTT2PostPlayerDeath", "DefectivePostPlayerDeath", function (victim, inflictor, attacker)
-		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(victim) or not victim:IsPlayer() then
-			return
-		end
-		
-		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
-		if m == SPECIAL_DET_MODE.JAM_TEMP and CanADeadDefBeRevealed() and not AtLeastOneDefLives() then
-			--If all defs are dead, give any remaining special dets their roles back.
-			for _, ply in pairs(player.GetAll()) do
-				if ply.det_role_masked_by_def then
-					ply:SetRole(ply.det_role_masked_by_def)
-					--Call this function whenever a role change occurs during an active round.
-					SendFullStateUpdate()
-					
-					--Remove this variable now that the special det has their role back.
-					ply.det_role_masked_by_def = nil
-				end
-			end
 		end
 	end)
 	
