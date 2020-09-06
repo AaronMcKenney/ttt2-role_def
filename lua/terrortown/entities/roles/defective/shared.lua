@@ -51,9 +51,14 @@ end
 if SERVER then
 	--CONSTANTS
 	--ttt2_defective_corpse_reveal_mode enum
-	local REVEAL_MODE = {NEVER = 0, ALL_DEAD = 1, ON_DEATH = 2}
+	local REVEAL_MODE = {NEVER = 0, ALL_DEAD = 1, ALL_DEFS_DEAD = 2, ON_DEATH = 3}
 	--ttt2_defective_det_handling_mode enum
 	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2, MIMIC = 3}
+	
+	local function RevealOnlyRequiresDeadDefs()
+		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
+		return (m == REVEAL_MODE.ON_DEATH or m == REVEAL_MODE.ALL_DEFS_DEAD)
+	end
 	
 	local function AtLeastOneDefExists()
 		for _, ply in pairs(player.GetAll()) do
@@ -88,7 +93,7 @@ if SERVER then
 	
 	local function CanADeadDefBeRevealed()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
-		if m == REVEAL_MODE.NEVER or (m == REVEAL_MODE.ALL_DEAD and AtLeastOneDefOrDetLives()) then
+		if m == REVEAL_MODE.NEVER or (m == REVEAL_MODE.ALL_DEAD and AtLeastOneDefOrDetLives()) or (m == REVEAL_MODE.ALL_DEFS_DEAD and AtLeastOneDefLives()) then
 			return false
 		else
 			return true
@@ -98,7 +103,7 @@ if SERVER then
 	local function AllowDetsToInspect()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
 		
-		if GetConVar("ttt2_inspect_detective_only"):GetBool() and ((m == REVEAL_MODE.ON_DEATH and AtLeastOneDefLives()) or (m ~= REVEAL_MODE.ON_DEATH and AtLeastOneDefExists())) then
+		if GetConVar("ttt2_inspect_detective_only"):GetBool() and ((RevealOnlyRequiresDeadDefs() and AtLeastOneDefLives()) or (not RevealOnlyRequiresDeadDefs() and AtLeastOneDefExists())) then
 			--Prevent dets from inspecting if doing so could be used to reveal the defective.
 			return false
 		end
@@ -109,7 +114,7 @@ if SERVER then
 	local function AllowDetsToConfirm()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
 		
-		if GetConVar("ttt2_confirm_detective_only"):GetBool() and ((m == REVEAL_MODE.ON_DEATH and AtLeastOneDefLives()) or (m ~= REVEAL_MODE.ON_DEATH and AtLeastOneDefExists())) then
+		if GetConVar("ttt2_confirm_detective_only"):GetBool() and ((RevealOnlyRequiresDeadDefs() and AtLeastOneDefLives()) or (not RevealOnlyRequiresDeadDefs() and AtLeastOneDefExists())) then
 			--Prevent dets from confirming if doing so could be used to reveal the defective.
 			return false
 		end
@@ -118,7 +123,7 @@ if SERVER then
 	end
 	
 	local function SendDefectiveInspectionNotice(ply)
-		if GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt() == REVEAL_MODE.ON_DEATH then
+		if RevealOnlyRequiresDeadDefs() then
 			LANG.Msg(ply, "prevent_inspection_live_" .. DEFECTIVE.name, nil, MSG_MSTACK_WARN)
 		else
 			LANG.Msg(ply, "prevent_inspection_exist_" .. DEFECTIVE.name, nil, MSG_MSTACK_WARN)
@@ -126,7 +131,7 @@ if SERVER then
 	end
 	
 	local function SendDefectiveConfirmationNotice(ply)
-		if GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt() == REVEAL_MODE.ON_DEATH then
+		if RevealOnlyRequiresDeadDefs() then
 			LANG.Msg(ply, "prevent_confirmation_live_" .. DEFECTIVE.name, nil, MSG_MSTACK_WARN)
 		else
 			LANG.Msg(ply, "prevent_confirmation_exist_" .. DEFECTIVE.name, nil, MSG_MSTACK_WARN)

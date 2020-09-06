@@ -6,18 +6,20 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 	tbl[ROLE_DEFECTIVE] = tbl[ROLE_DEFECTIVE] or {}
 	
 	--# When should def's true role be revealed?
-	--  ttt2_defective_corpse_reveal_mode [0..2] (default: 0)
-	--  # 0: Never reveal the def's role when searched
-	--  # 1: Reveal def's role when all dets and defs are dead
-	--  # 2: Reveal def's role when searched
+	--  ttt2_defective_corpse_reveal_mode [0..3] (default: 0)
+	--  # 0: Search never reveals def's role
+	--  # 1: Search reveals def's role when all dets and defs are dead
+	--  # 2: Search reveals def's role when all defs are dead
+	--  # 3: Search reveals def's role
 	table.insert(tbl[ROLE_DEFECTIVE], {
 		cvar = "ttt2_defective_corpse_reveal_mode",
 		combobox = true,
 		desc = "ttt2_defective_corpse_reveal_mode (Def: 0)",
 		choices = {
-			"0 - Never reveal the def's role when searched",
-			"1 - Reveal def's role when all dets and defs are confirmed dead",
-			"2 - Reveal def's role when searched"
+			"0 - Search never reveals def's role",
+			"1 - Search reveals def's role when all dets and defs are dead",
+			"2 - Search reveals def's role when all defs are dead",
+			"3 - Search reveals def's role"
 		},
 		numStart = 0
 	})
