@@ -14,3 +14,5 @@ L["prevent_inspection_exist_" .. DEFECTIVE.name] = "Inspection is unavailable be
 L["prevent_inspection_live_" .. DEFECTIVE.name] = "Inspection is unavailable because a Defective lives."
 L["prevent_confirmation_exist_" .. DEFECTIVE.name] = "Confirmation is unavailable because a Defective exists."
 L["prevent_confirmation_live_" .. DEFECTIVE.name] = "Confirmation is unavailable because a Defective lives."
+L["prevent_def_to_tra_comm_" .. DEFECTIVE.name] = "Defectives are not allowed to use traitor chat/voice."
+L["prevent_tra_to_def_comm_" .. DEFECTIVE.name] = "Traitors are not allowed to use traitor chat/voice until every Defective is dead."

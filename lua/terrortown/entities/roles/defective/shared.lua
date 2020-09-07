@@ -200,6 +200,14 @@ if SERVER then
 		--While GiveEquipmentItem() would be the better function to use here, it actually fails to give the defective the DNA scanner. Currently in the TTT2 codebase, Give() is used for the detective, so it should be fine here for now.
 		--Also, unlike other roles, it appears that the normal detective does not lose their equipment item should they change roles or die.
 		ply:Give("weapon_ttt_wtester")
+		
+		--Need a timer (hack) here because the starting credits can be overwritten by ULX and other things.
+		--See function "ulx.force"
+		timer.Simple(0.1, function()
+			--TODO: Hookup with SPECIAL_DET_MODE.MIMIC for special dets
+			--Give the defective the same number of credits as the role their disguised as.
+			ply:SetCredits(GetConVar("ttt_det_credits_starting"):GetInt())
+		end)
 	end
 	
 	--Taken mostly from the Spy role.
@@ -218,21 +226,23 @@ if SERVER then
 					continue
 				end
 				
-				if not ply:HasTeam(TEAM_TRAITOR) then
+				if not ply:HasTeam(TEAM_TRAITOR) or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
 					--TODO: Hookup with SPECIAL_DET_MODE.MIMIC
 					--TODO: Abstract "ROLE_DETECTIVE" so that other roles can be used here.
 					
 					--Make the defective look like a detective to all non-traitors.
 					tbl[ply_i] = {ROLE_DETECTIVE, TEAM_INNOCENT}
 				else
-					--Reveal the defective's role to traitors
+					--Reveal the defective's role to their team mates
 					tbl[ply_i] = {ROLE_DEFECTIVE, TEAM_TRAITOR}
 				end
 			end
 			
-			--Allow for the defective to see their fellow traitors.
-			if ply_i:IsTerror() and ply_i ~= ply and ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:HasTeam(TEAM_TRAITOR) then
-				tbl[ply_i] = {ply_i:GetSubRole(), ply_i:GetTeam()}
+			if GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
+				--Allow for the defective to see their fellow traitors.
+				if ply_i:IsTerror() and ply_i ~= ply and ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:HasTeam(TEAM_TRAITOR) then
+					tbl[ply_i] = {ply_i:GetSubRole(), ply_i:GetTeam()}
+				end
 			end
 		end
 	end)
@@ -240,8 +250,53 @@ if SERVER then
 	--Taken mostly from the Spy role.
 	hook.Add("TTT2ModifyRadarRole", "DefectiveModifyRadarRole", function(ply, target)
 		--Make defectives look like detectives when an innocent role uses a radar.
-		if not ply:HasTeam(TEAM_TRAITOR) and target:GetSubRole() == ROLE_DEFECTIVE then
+		if (not ply:HasTeam(TEAM_TRAITOR) or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool()) and target:GetSubRole() == ROLE_DEFECTIVE then
 			return ROLE_DETECTIVE, TEAM_INNOCENT
+		end
+		
+		--Make fellow team mates (but not the jester!) look like innocents if the def isn't supposed to see them
+		if ply:GetSubRole() == ROLE_DEFECTIVE and target:HasTeam(TEAM_TRAITOR) and not GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
+			return ROLE_INNOCENT, TEAM_INNOCENT
+		end
+	end)
+	
+	--Taken mostly from the Spy role.
+	hook.Add("TTT2AvoidTeamChat", "DefectiveAvoidTeamChat", function(sender, tm, msg)
+		--Only jam traitor team chat
+		if not tm == TEAM_TRAITOR or not IsValid(sender) or not sender:HasTeam(TEAM_TRAITOR) then
+			return
+		end
+		
+		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and sender:HasTeam(TEAM_TRAITOR) and AtLeastOneDefLives() then
+			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
+			LANG.Msg(speaker, "prevent_tra_to_def_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+			return false
+		end
+		
+		if not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() and sender:GetSubRole() == ROLE_DEFECTIVE then
+			--Prevent defective from talking to their team mates through traitor chat, which would reveal their role to the traitors.
+			LANG.Msg(speaker, "prevent_def_to_tra_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+			return false
+		end
+	end)
+	
+	--Taken mostly from the Spy role.
+	hook.Add("TTT2CanUseVoiceChat", "DefectiveCanUseVoiceChat", function(speaker, isTeamVoice)
+		--Only jam traitor team voice
+		if not isTeamVoice or not IsValid(speaker) or not speaker:HasTeam(TEAM_TRAITOR) then
+			return
+		end
+		
+		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and speaker:HasTeam(TEAM_TRAITOR) and AtLeastOneDefLives() then
+			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
+			LANG.Msg(speaker, "prevent_tra_to_def_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+			return false
+		end
+		
+		if not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() and speaker:GetSubRole() == ROLE_DEFECTIVE then
+			--Prevent defective from talking to their team mates through traitor chat, which would reveal their role to the traitors.
+			LANG.Msg(speaker, "prevent_def_to_tra_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+			return false
 		end
 	end)
 	
@@ -370,7 +425,7 @@ if SERVER then
 	
 	--Taken mostly from the Spy role.
 	hook.Add("TTT2ConfirmPlayer", "DefectiveConfirmPlayer", function(confirmed, finder, corpse)
-		if IsValid(confirmed) and not CanADeadDefBeRevealed() then
+		if IsValid(confirmed) and corpse and confirmed:GetSubRole() == ROLE_DEFECTIVE and not CanADeadDefBeRevealed() then
 			--Confirm player as a detective
 			confirmed:ConfirmPlayer(true)
 			SendRoleListMessage(ROLE_DETECTIVE, TEAM_INNOCENT, {confirmed:EntIndex()})
