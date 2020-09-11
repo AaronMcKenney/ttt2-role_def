@@ -92,6 +92,14 @@ if SERVER then
 		return false
 	end
 	
+	local function CanALivingDetBeRevealed()
+		if RevealOnlyRequiresDeadDefs() then
+			return not AtLeastOneDefLives()
+		else
+			return not AtLeastOneDefExists()
+		end
+	end
+	
 	local function CanADeadDefBeRevealed()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
 		if m == REVEAL_MODE.NEVER or (m == REVEAL_MODE.ALL_DEAD and AtLeastOneDefOrDetLives()) or (m == REVEAL_MODE.ALL_DEFS_DEAD and AtLeastOneDefLives()) then
@@ -104,7 +112,7 @@ if SERVER then
 	local function AllowDetsToInspect()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
 		
-		if GetConVar("ttt2_inspect_detective_only"):GetBool() and ((RevealOnlyRequiresDeadDefs() and AtLeastOneDefLives()) or (not RevealOnlyRequiresDeadDefs() and AtLeastOneDefExists())) then
+		if GetConVar("ttt2_inspect_detective_only"):GetBool() and not CanALivingDetBeRevealed() then
 			--Prevent dets from inspecting if doing so could be used to reveal the defective.
 			return false
 		end
@@ -115,7 +123,7 @@ if SERVER then
 	local function AllowDetsToConfirm()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
 		
-		if GetConVar("ttt2_confirm_detective_only"):GetBool() and ((RevealOnlyRequiresDeadDefs() and AtLeastOneDefLives()) or (not RevealOnlyRequiresDeadDefs() and AtLeastOneDefExists())) then
+		if GetConVar("ttt2_confirm_detective_only"):GetBool() and not CanALivingDetBeRevealed() then
 			--Prevent dets from confirming if doing so could be used to reveal the defective.
 			return false
 		end
@@ -306,7 +314,31 @@ if SERVER then
 			return
 		end
 		
-		if GetConVar("ttt2_defective_detective_immunity"):GetBool() and AtLeastOneDefExists() and ((target:GetSubRole() == ROLE_DEFECTIVE or target:GetBaseRole() == ROLE_DETECTIVE) and (attacker:GetSubRole() == ROLE_DEFECTIVE or attacker:GetBaseRole() == ROLE_DETECTIVE)) then
+		local target_is_det_or_def = (target:GetSubRole() == ROLE_DEFECTIVE or target:GetBaseRole() == ROLE_DETECTIVE)
+		local attacker_is_det_or_def = (attacker:GetSubRole() == ROLE_DEFECTIVE or attacker:GetBaseRole() == ROLE_DETECTIVE)
+		
+		if not GetConVar("ttt2_defective_detective_immunity"):GetBool() or CanALivingDetBeRevealed() or not target_is_det_or_def or not attacker_is_det_or_def then
+			--Return if immunity is disabled, defs are not affecting gameplay, or if either the target or attacker aren't dets/defs.
+			return
+		end
+		
+		--Count all of the def's living team mates and all of the det's living team mates.
+		--If they both have no remaining non-def and non-def team mates on both sides,
+		--then immunity should be revoked (otherwise the game may become a stalemate).
+		local num_living_defs = 0
+		local num_living_dets = 0
+		local num_living_traitors = 0
+		local num_living_innos = 0
+		for _, ply in pairs(player.GetAll()) do
+			if ply:IsTerror() and ply:Alive() then
+				num_living_defs = num_living_defs + (ply:GetSubRole() == ROLE_DEFECTIVE and 1 or 0)
+				num_living_dets = num_living_dets + (ply:GetBaseRole() == ROLE_DETECTIVE and 1 or 0)
+				num_living_traitors = num_living_traitors + (ply:HasTeam(TEAM_TRAITOR) and 1 or 0)
+				num_living_innos = num_living_innos + (ply:HasTeam(TEAM_INNOCENT) and 1 or 0)
+			end
+		end
+		
+		if num_living_defs < num_living_traitors or num_living_dets < num_living_innos then
 			dmg_info:SetDamage(0)
 		end
 	end)
