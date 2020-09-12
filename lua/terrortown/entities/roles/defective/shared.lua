@@ -61,6 +61,10 @@ if SERVER then
 		return (m == REVEAL_MODE.ON_DEATH or m == REVEAL_MODE.ALL_DEFS_DEAD)
 	end
 	
+	local function IsDefOrDet(ply)
+		return (ply:GetSubRole() == ROLE_DEFECTIVE or ply:GetBaseRole() == ROLE_DETECTIVE)
+	end
+	
 	local function AtLeastOneDefExists()
 		for _, ply in pairs(player.GetAll()) do
 			if ply:GetSubRole() == ROLE_DEFECTIVE then
@@ -314,10 +318,7 @@ if SERVER then
 			return
 		end
 		
-		local target_is_det_or_def = (target:GetSubRole() == ROLE_DEFECTIVE or target:GetBaseRole() == ROLE_DETECTIVE)
-		local attacker_is_det_or_def = (attacker:GetSubRole() == ROLE_DEFECTIVE or attacker:GetBaseRole() == ROLE_DETECTIVE)
-		
-		if not GetConVar("ttt2_defective_detective_immunity"):GetBool() or CanALivingDetBeRevealed() or not target_is_det_or_def or not attacker_is_det_or_def then
+		if not GetConVar("ttt2_defective_detective_immunity"):GetBool() or CanALivingDetBeRevealed() or not IsDefOrDet(target) or not IsDefOrDet(attacker) then
 			--Return if immunity is disabled, defs are not affecting gameplay, or if either the target or attacker aren't dets/defs.
 			return
 		end
@@ -365,15 +366,7 @@ if SERVER then
 	end)
 	
 	hook.Add("TTT2CheckCreditAward", "DefectiveCreditAward", function(victim, attacker)
-		if GetRoundState() ~= ROUND_ACTIVE then
-			return
-		end
-		
-		if not IsValid(victim) then
-			return
-		end
-		
-		if not IsValid(attacker) or not attacker:IsPlayer() or not attacker:IsActive() then
+		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(victim) or not IsValid(attacker) or not attacker:IsPlayer() or not attacker:IsActive()then
 			return
 		end
 		
@@ -402,21 +395,46 @@ if SERVER then
 	local function GiveFoundCredits(ply, rag, isLongRange)
 		local corpseNick = CORPSE.GetPlayerNick(rag)
 		local credits = CORPSE.GetCredits(rag, 0)
-
+		
 		if not ply:IsActiveShopper() or ply:GetSubRoleData().preventFindCredits
 			or credits == 0 or isLongRange
 		then return end
-
+		
 		LANG.Msg(ply, "body_credits", {num = credits})
-
+		
 		ply:AddCredits(credits)
-
+		
 		CORPSE.SetCredits(rag, 0)
-
+		
 		ServerLog(ply:Nick() .. " took " .. credits .. " credits from the body of " .. corpseNick .. "\n")
-
+		
 		SCORE:HandleCreditFound(ply, corpseNick, credits)
 	end
+	
+	hook.Add("TTT2CanOrderEquipment", "DefectiveCanOrderEquipment", function(ply, cls, is_item, credits)
+		if not GetConVar("ttt2_defective_shop_order_prevention"):GetBool() or GetRoundState() ~= ROUND_ACTIVE or ply:GetBaseRole() ~= ROLE_DETECTIVE or CanALivingDetBeRevealed() then
+			return
+		end
+		
+		--Taken from OrderEquipment function. Semi-internal variable containing all info on a weapon/item.
+		local equip_table = not is_item and weapons.GetStored(cls) or items.GetStored(cls)
+		
+		--The code suggests that it is possible for players of the same role to have different shops.
+		local buyable_by_all_defs = true
+		for _, ply in pairs(player.GetAll()) do
+			if ply:GetSubRole() == ROLE_DEFECTIVE and not EquipmentIsBuyable(equip_table, ply) then
+				buyable_by_all_defs = false
+				break
+			end
+		end
+		
+		--Prevent dets from buying items/weapons that defs can't buy.
+		--This allows the admin to prevent dets from buying something like a portable tester or similar item which can instantly prove their innocence and reveal the def.
+		if not buyable_by_all_defs then
+			LANG.Msg(ply, "prevent_order_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+			return false
+		end
+	end)
 	
 	--Taken mostly from the Spy role.
 	hook.Add("TTTCanSearchCorpse", "DefectiveCanSearchCorpse", function(ply, corpse, isCovert, isLongRange)
@@ -507,6 +525,6 @@ end
 
 if CLIENT then
 	net.Receive("TTT2DefectiveInformEveryone", function()
-		EPOP:AddMessage({text = LANG.GetTranslation("inform_everyone_" .. DEFECTIVE.name), color = DEFECTIVE.color}, "", 4)
+		EPOP:AddMessage({text = LANG.GetTranslation("inform_everyone_" .. DEFECTIVE.name), color = DEFECTIVE.color}, "", 6)
 	end)
 end
