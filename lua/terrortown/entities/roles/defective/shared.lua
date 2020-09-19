@@ -420,9 +420,10 @@ if SERVER then
 		local equip_table = not is_item and weapons.GetStored(cls) or items.GetStored(cls)
 		
 		--The code suggests that it is possible for players of the same role to have different shops.
+		local dead_defs_prevent_orders = (GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt() ~= REVEAL_MODE.ON_DEATH)
 		local buyable_by_all_defs = true
 		for _, ply in pairs(player.GetAll()) do
-			if ply:GetSubRole() == ROLE_DEFECTIVE and not EquipmentIsBuyable(equip_table, ply) then
+			if ply:IsTerror() and (dead_defs_prevent_orders or ply:Alive()) and ply:GetSubRole() == ROLE_DEFECTIVE and not EquipmentIsBuyable(equip_table, ply) then
 				buyable_by_all_defs = false
 				break
 			end
