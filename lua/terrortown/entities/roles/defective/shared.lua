@@ -421,19 +421,13 @@ if SERVER then
 		
 		--The code suggests that it is possible for players of the same role to have different shops.
 		local dead_defs_prevent_orders = (GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt() ~= REVEAL_MODE.ON_DEATH)
-		local buyable_by_all_defs = true
-		for _, ply in pairs(player.GetAll()) do
-			if ply:IsTerror() and (dead_defs_prevent_orders or ply:Alive()) and ply:GetSubRole() == ROLE_DEFECTIVE and not EquipmentIsBuyable(equip_table, ply) then
-				buyable_by_all_defs = false
-				break
+		for _, ply_i in pairs(player.GetAll()) do
+			if ply_i:IsTerror() and (dead_defs_prevent_orders or ply_i:Alive()) and ply_i:GetSubRole() == ROLE_DEFECTIVE and not EquipmentIsBuyable(equip_table, ply_i) then
+				--Prevent dets from buying items/weapons that defs can't buy.
+				--This allows the admin to prevent dets from buying something like a portable tester or similar item which can instantly prove their innocence and reveal the def.
+				LANG.Msg(ply, "prevent_order_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+				return false
 			end
-		end
-		
-		--Prevent dets from buying items/weapons that defs can't buy.
-		--This allows the admin to prevent dets from buying something like a portable tester or similar item which can instantly prove their innocence and reveal the def.
-		if not buyable_by_all_defs then
-			LANG.Msg(ply, "prevent_order_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
-			return false
 		end
 	end)
 	
