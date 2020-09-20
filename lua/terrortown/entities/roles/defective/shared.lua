@@ -169,7 +169,7 @@ if SERVER then
 	end
 	
 	hook.Add("TTTBeginRound", "DefectiveBeginRound", function()
-		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
+		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
 		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
 			--Force all special detectives to be normal detectives, in case they have some special equipment or ability that could instantly be used to make them trustworthy.
 			for _, ply in pairs(player.GetAll()) do
@@ -186,7 +186,7 @@ if SERVER then
 	
 	hook.Add("TTT2UpdateSubrole", "DefectiveUpdateSubrole", function(self, oldSubrole, subrole)
 		local base_role = roles.GetByIndex(subrole):GetBaseRole()
-		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
+		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
 		
 		if self.det_role_masked_by_def and self.det_role_masked_by_def ~= subrole then
 			--Remove the special det's "true role" if they convert to anything other than their true role.
