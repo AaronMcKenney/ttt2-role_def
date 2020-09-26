@@ -391,26 +391,6 @@ if SERVER then
 		end
 	end)
 	
-	--Copied directly from TTT2/gamemodes/terrortown/gamemode/server/sv_corpse.lua
-	local function GiveFoundCredits(ply, rag, isLongRange)
-		local corpseNick = CORPSE.GetPlayerNick(rag)
-		local credits = CORPSE.GetCredits(rag, 0)
-		
-		if not ply:IsActiveShopper() or ply:GetSubRoleData().preventFindCredits
-			or credits == 0 or isLongRange
-		then return end
-		
-		LANG.Msg(ply, "body_credits", {num = credits})
-		
-		ply:AddCredits(credits)
-		
-		CORPSE.SetCredits(rag, 0)
-		
-		ServerLog(ply:Nick() .. " took " .. credits .. " credits from the body of " .. corpseNick .. "\n")
-		
-		SCORE:HandleCreditFound(ply, corpseNick, credits)
-	end
-	
 	hook.Add("TTT2CanOrderEquipment", "DefectiveCanOrderEquipment", function(ply, cls, is_item, credits)
 		if not GetConVar("ttt2_defective_shop_order_prevention"):GetBool() or GetRoundState() ~= ROUND_ACTIVE or ply:GetBaseRole() ~= ROLE_DETECTIVE or CanALivingDetBeRevealed() then
 			return
@@ -430,6 +410,26 @@ if SERVER then
 			end
 		end
 	end)
+	
+	--Copied directly from TTT2/gamemodes/terrortown/gamemode/server/sv_corpse.lua
+	local function GiveFoundCredits(ply, rag, isLongRange)
+		local corpseNick = CORPSE.GetPlayerNick(rag)
+		local credits = CORPSE.GetCredits(rag, 0)
+		
+		if not ply:IsActiveShopper() or ply:GetSubRoleData().preventFindCredits
+			or credits == 0 or isLongRange
+		then return end
+		
+		LANG.Msg(ply, "body_credits", {num = credits})
+		
+		ply:AddCredits(credits)
+		
+		CORPSE.SetCredits(rag, 0)
+		
+		ServerLog(ply:Nick() .. " took " .. credits .. " credits from the body of " .. corpseNick .. "\n")
+		
+		SCORE:HandleCreditFound(ply, corpseNick, credits)
+	end
 	
 	--Taken mostly from the Spy role.
 	hook.Add("TTTCanSearchCorpse", "DefectiveCanSearchCorpse", function(ply, corpse, isCovert, isLongRange)
@@ -513,6 +513,15 @@ if SERVER then
 				
 				--Inform everyone about the def's true role
 				SendPlayerToEveryone(ply)
+			end
+		end
+	end)
+	
+	hook.Add("TTT2ModifyCorpseCallRadarRecipients", "DefectiveModifyCorpseCallRadarRecipients", function(plyTable, rag, ply)
+		--Add defectives to list of players that are called when someone hits the "Call Detective" button
+		for _, ply_i in pairs(player.GetAll()) do
+			if ply_i:IsTerror() and ply_i:Alive() and ply_i:GetSubRole() == ROLE_DEFECTIVE and not ply_i:GetSubRoleData().disabledTeamChatRec then
+				plyTable[#plyTable + 1] = ply_i
 			end
 		end
 	end)
