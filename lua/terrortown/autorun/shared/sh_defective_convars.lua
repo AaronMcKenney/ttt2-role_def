@@ -1,6 +1,6 @@
 --ConVar syncing
 CreateConVar("ttt2_defective_inform_everyone", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
-CreateConVar("ttt2_defective_shop_order_prevention", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
+CreateConVar("ttt2_defective_shop_order_prevention", "0", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_detective_immunity", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_can_see_traitors", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_can_be_seen_by_traitors", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
@@ -19,12 +19,14 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 	})
 	
 	--# Prevent the detective from purchasing items that aren't in the defective's shop?
+	--  You can create your own custom shop for the defective via the "shopeditor" command.
 	--  You can use this as a way to prevent the detective from purchasing a portable tester, golden deagle, etc. when a defective is active.
-	--  ttt2_defective_shop_order_prevention [0/1] (default: 1)
+	--  Do not enable if ttt2_random_team_shops is enabled (may prevent dets from purchasing most things at random).
+	--  ttt2_defective_shop_order_prevention [0/1] (default: 0)
 	table.insert(tbl[ROLE_DEFECTIVE], {
 		cvar = "ttt2_defective_shop_order_prevention",
 		checkbox = true,
-		desc = "ttt2_defective_shop_order_prevention (Def: 1)"
+		desc = "ttt2_defective_shop_order_prevention (Def: 0)"
 	})
 	
 	--# Prevent all defectives and detectives from harming one another (unless all other members on their team are dead)?
@@ -71,11 +73,10 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 	})
 	
 	--# How should special detectives (ex. Sheriff, Vigilante, Sniffer) be handled when the defective is in play?
-	--  ttt2_defective_special_det_handling_mode [0..3] (default: 1)
+	--  ttt2_defective_special_det_handling_mode [0..2] (default: 1)
 	--  # 0: Do not alter special dets
 	--  # 1: Force all special dets to be normal dets
 	--  # 2: Force all special dets to be normal dets, but give them back their roles if: all defs are dead, defs can be revealed, and the former special det didn't undergo a role change (ex. did not become infected)
-	--  # 3: Provide the possibility for the def to be disguised as a special det
 	table.insert(tbl[ROLE_DEFECTIVE], {
 		cvar = "ttt2_defective_special_det_handling_mode",
 		combobox = true,
@@ -84,7 +85,6 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 			"0 - Do not alter special dets",
 			"1 - Force all special dets to be normal dets",
 			"2 - Force all special dets to be normal dets until all defs are dead",
-			"3 - Provide the possibility for the def to be disguised as a special det"
 		},
 		numStart = 0
 	})

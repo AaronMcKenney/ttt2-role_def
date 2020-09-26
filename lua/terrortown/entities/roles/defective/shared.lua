@@ -54,7 +54,7 @@ if SERVER then
 	--ttt2_defective_corpse_reveal_mode enum
 	local REVEAL_MODE = {NEVER = 0, ALL_DEAD = 1, ALL_DEFS_DEAD = 2, ON_DEATH = 3}
 	--ttt2_defective_det_handling_mode enum
-	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2, MIMIC = 3}
+	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2}
 	
 	local function RevealOnlyRequiresDeadDefs()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
@@ -216,7 +216,6 @@ if SERVER then
 		--Need a timer (hack) here because the starting credits can be overwritten by ULX and other things.
 		--See function "ulx.force"
 		timer.Simple(0.1, function()
-			--TODO: Hookup with SPECIAL_DET_MODE.MIMIC for special dets
 			--Give the defective the same number of credits as the role their disguised as.
 			ply:SetCredits(GetConVar("ttt_det_credits_starting"):GetInt())
 		end)
@@ -239,9 +238,6 @@ if SERVER then
 				end
 				
 				if not ply:HasTeam(TEAM_TRAITOR) or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
-					--TODO: Hookup with SPECIAL_DET_MODE.MIMIC
-					--TODO: Abstract "ROLE_DETECTIVE" so that other roles can be used here.
-					
 					--Make the defective look like a detective to all non-traitors.
 					tbl[ply_i] = {ROLE_DETECTIVE, TEAM_INNOCENT}
 				else
