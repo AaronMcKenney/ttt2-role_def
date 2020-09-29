@@ -34,6 +34,7 @@ function ROLE:PreInitialize()
 		maximum = 1,
 		minPlayers = 8,
 		minKarma = 600,
+		traitorButton = 1, --can use traitor buttons
 		
 		--Detective defaults replicated here
 		credits = 1,
@@ -52,13 +53,13 @@ end
 if SERVER then
 	--CONSTANTS
 	--ttt2_defective_corpse_reveal_mode enum
-	local REVEAL_MODE = {NEVER = 0, ALL_DEAD = 1, ALL_DEFS_DEAD = 2, ON_DEATH = 3}
+	local REVEAL_MODE = {NEVER = 0, ALL_DEAD = 1, ALL_DEFS_DEAD = 2, ALWAYS = 3}
 	--ttt2_defective_det_handling_mode enum
 	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2}
 	
 	local function RevealOnlyRequiresDeadDefs()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
-		return (m == REVEAL_MODE.ON_DEATH or m == REVEAL_MODE.ALL_DEFS_DEAD)
+		return (m == REVEAL_MODE.ALWAYS or m == REVEAL_MODE.ALL_DEFS_DEAD)
 	end
 	
 	local function IsDefOrDet(ply)
@@ -396,7 +397,7 @@ if SERVER then
 		local equip_table = not is_item and weapons.GetStored(cls) or items.GetStored(cls)
 		
 		--The code suggests that it is possible for players of the same role to have different shops.
-		local dead_defs_prevent_orders = (GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt() ~= REVEAL_MODE.ON_DEATH)
+		local dead_defs_prevent_orders = (GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt() ~= REVEAL_MODE.ALWAYS)
 		for _, ply_i in pairs(player.GetAll()) do
 			if ply_i:IsTerror() and (dead_defs_prevent_orders or ply_i:Alive()) and ply_i:GetSubRole() == ROLE_DEFECTIVE and not EquipmentIsBuyable(equip_table, ply_i) then
 				--Prevent dets from buying items/weapons that defs can't buy.
