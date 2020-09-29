@@ -1,0 +1,67 @@
+[i]It cost us significant capital, but we finally did it. We turned a detective into a no good rotten traitor.[/i]
+ 
+You have to use [URL=https://steamcommunity.com/sharedfiles/filedetails/?id=1357204556]TTT2[/URL] in order to use this role. Additionally using [URL=https://steamcommunity.com/sharedfiles/filedetails/?id=1362430347]ULX for TTT2[/URL] is recommended. Report bugs concerning this role [URL=https://github.com/AaronMcKenney/ttt2-role_def]here[/URL] and submit new role ideas [URL=https://github.com/TTT-2/addon-ideas]here[/URL]. A list of all currently available roles can be found [URL=https://steamcommunity.com/sharedfiles/filedetails/?id=1737053146]here[/URL].
+ 
+Discord: [url=https://discord.gg/Npcbb4W]https://discord.gg/Npcbb4W[/url]
+Source: [url=https://github.com/AaronMcKenney/ttt2-role_def]https://github.com/AaronMcKenney/ttt2-role_def[/url]
+ 
+ 
+[img]https://i.imgur.com/KeP4fWN.png[/img]
+ 
+Visually and functionally, the defective operates similarly to a regular detective. They use the detective's shop, have a DNA scanner, and obtain credits in the same manner as a detective. However, they are a traitor: They take up a traitor's spot and a traitor test will reveal them as such.
+ 
+[H1]Plays best with:[/H1]
+[list]
+    [*][URL=https://steamcommunity.com/sharedfiles/filedetails/?id=1683708655]Spy[/URL]
+    [*][URL=https://steamcommunity.com/sharedfiles/filedetails/?id=2137829511]Mesmerist[/URL]
+    [*][URL=https://steamcommunity.com/sharedfiles/filedetails/?id=1795539570]Bodyguard[/URL]
+[/list]
+ 
+ 
+[img]https://i.imgur.com/jIBWtbM.png[/img]
+ 
+Convars are variables that are introduced to allow server owners to customize the gameplay without changing the code. There are always a handful of convars automatically created by TTT2, that define the spawn parameters of this role and are found in ULX. Additionally there might be some role specific convars, which have to be set in the server config file.
+ 
+[h1]Normal Role Convars (also found in ULX):[/h1]
+[code]# enable or disable this role
+  ttt_defective_enabled [0/1] (default: 1)
+# the percentage of players that are spawned as this role
+  ttt_defective_pct [0.0..1.0] (default: 0.13)
+# the limit of players that spawn as this role each round, this overwrites the percentage
+  ttt_defective_max [0..n] (default: 1)
+# the probability each round of this role being spawned at all
+  ttt_defective_random [0..100] (default: 30)
+# the amount of players needed for this role to spawn
+  ttt_defective_min_players: [0..n] (default: 8)[/code]
+ 
+[h1]Rolespecific Convars:[/h1]
+[code]# Send a popup message if there's a defective at the start of the round?
+  ttt2_defective_inform_everyone [0/1] (default: 1)
+# Prevent the detective from purchasing items that aren't in the defective's shop?
+  # You can create your own custom shop for the defective via the "shopeditor" command.
+  # You can use this as a way to prevent the detective from purchasing a portable tester, golden deagle, etc. when a defective is active.
+  # Do not enable if ttt2_random_team_shops is enabled (may prevent dets from purchasing most things at random).
+  ttt2_defective_shop_order_prevention [0/1] (default: 0)
+# Prevent all defectives and detectives from harming one another (unless all other members on their team are dead)?
+  ttt2_defective_detective_immunity [0/1] (default: 1)
+# Can the defective see their fellow team mates (e.g. traitors, bodyguards, etc.)?
+  ttt2_defective_can_see_traitors [0/1] (default: 1)
+# Are traitors informed about who the defective is?
+  ttt2_defective_can_be_seen_by_traitors [0/1] (default: 1)
+# When should def's true role be revealed?
+  ttt2_defective_corpse_reveal_mode [0..3] (default: 0)
+  # 0: Search never reveals def's role
+  # 1: Search reveals def's role when all dets and defs are dead
+  # 2: Search reveals def's role when all defs are dead
+  # 3: Search reveals def's role
+# How should special detectives (ex. Sheriff, Vigilante, Sniffer) be handled when the defective is in play?
+  ttt2_defective_special_det_handling_mode [0..2] (default: 1)
+  # 0: Do not alter special dets
+  # 1: Force all special dets to be normal dets
+  # 2: Force all special dets to be normal dets, but give them back their roles if: all defs are dead, defs can be revealed, and the former special det didn't undergo a role change (ex. did not become infected)[/code]
+ 
+--
+[h1]Credits:[/h1]
+[URL=https://steamcommunity.com/profiles/76561198025772353/]BlackMagicFine[/URL]: creator of this role addon
+[URL=https://steamcommunity.com/id/SmugglesTheButt/]Smuggles[/URL]: designer of the role icon
+[URL=https://steamcommunity.com/id/mineotopia]Mineotopia[/URL]: designer of the role thumbnail

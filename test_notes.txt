@@ -1,0 +1,53 @@
+ttt2_defective_inform_everyone:
+--A pop-up shows up at the beginning of the round only if there's a defective and ttt2_defective_inform_everyone is set to true.
+--The pop-up does not show up if someone becomes a def in the middle of the round.
+
+ttt2_defective_shop_order_prevention:
+--If ttt2_defective_shop_order_prevention isn't set, then the detective is not inhibited in what they buy.
+--If ttt2_defective_shop_order_prevention is set but there isn't a defective in play, then the detective is not inhibited in what they buy.
+--If ttt2_defective_shop_order_prevention is set and there is a defective in play, then the detective may only but items that are in both the detective's and the defective's shop.
+--If ttt2_defective_shop_order_prevention is set and there is a defective in play but the defective is dead and can be revealed, then the detective is not inhibited in what they can buy.
+
+ttt2_defective_detective_immunity:
+--If ttt2_defective_detective_immunity is not set, then the defective and detective can harm one another.
+--If ttt2_defective_detective_immunity is set and there is at least one innocent and one traitor, then the defective and detective cannot harm one another.
+--If ttt2_defective_detective_immunity is set and there is at least one innocent and no traitors, then the defective and detective cannot harm one another.
+--If ttt2_defective_detective_immunity is set and there are no innocents and at least one traitor, then the defective and detective cannot harm one another.
+--If ttt2_defective_detective_immunity is set but there are no innocents and no traitors, then the defective an detective can harm one another.
+
+ttt2_defective_can_see_traitors:
+--If ttt2_defective_can_see_traitors is enabled, then:
+	--The defective can see traitors.
+	--The defective's radar shows traitors in red.
+--If ttt2_defective_can_see_traitors is disabled, then:
+	--The defective can't see traitors.
+	--The defective's radar shows traitors in green.
+	--(MULTIPLAYER TEST!!!)Team chat and voice chat is turned off if any defectives are alive.
+
+ttt2_defective_can_be_seen_by_traitors:
+--If ttt2_defective_can_be_seen_by_traitors is enabled, then:
+	--The defective appears a defective to traitors.
+	--The traitor's radar shows defectives in red. 
+--If ttt2_defective_can_be_seen_by_traitors is disabled, then:
+	--The defective appears as a detective to traitors.
+	--The traitor's radar shows defectives in blue.
+	--(MULTIPLAYER TEST!!!)Team chat and voice chat is turned off for defectives.
+
+ttt2_defective_corpse_reveal_mode:
+--If reveal mode is set to NEVER, then the defectives will never be revealed by a body search.
+--If reveal mode is set to ALL_DEAD, then the defectives may only be revealed by a body search if all detectives and defectives are dead.
+--If reveal mode is set to ALL_DEF_DEAD, then the defectives may only be revealed by a body search if all defectives are dead.
+--If reveal mode is set to ON_DEATH, then the defectives will be revealed upon a body searched.
+
+ttt2_defective_special_det_handling_mode:
+--If the mode is set to NEVER, then special detectives remain unchanged.
+--If the mode is set to JAM, then all special detectives become regular detectives. Any special items such as Lens or Deputy Pistol are taken away from them.
+--If the mode is set to JAM_TEMP, then at first it behaves as JAM, but the affected are given back their previous roles (and special equipment) when every defective has been or can be revealed.
+--If the mode is set to JAM_TEMP, and a sniffer is in play, the sniffer becomes a normal det. If that det is then converted into an infected and all defs are killed, then the infected does not become a sniffer.
+--If the mode is set to JAM_TEMP, and a sniffer is in play, the sniffer becomes a normal det. That det is then converted into an infected, and then converted back into a normal det. If all defs are killed, then the det is not converted back into a sniffer.
+
+credits:
+--The defective starts with the number of credits that the detective starts with.
+--The defective gains ttt_det_credits_traitordead credits for every traitor they kill.
+--(MULTIPLAYER TEST!!!)Detectives gain ttt_det_credits_traitordead credits for every traitor a defective kills.
+--(MULTIPLAYER TEST!!!)Defectives gain ttt_det_credits_traitordead credits for every traitor a detective kills.
