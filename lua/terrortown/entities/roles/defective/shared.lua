@@ -105,7 +105,8 @@ if SERVER then
 		end
 	end
 	
-	local function CanADeadDefBeRevealed()
+	--This is not local as it may be used by other mods which desire to "play along" with the defective's shenanigans.
+	function CanADeadDefBeRevealed()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
 		if m == REVEAL_MODE.NEVER or (m == REVEAL_MODE.ALL_DEAD and AtLeastOneDefOrDetLives()) or (m == REVEAL_MODE.ALL_DEFS_DEAD and AtLeastOneDefLives()) then
 			return false
@@ -222,17 +223,21 @@ if SERVER then
 		end)
 	end
 	
-	--Taken mostly from the Spy role.
 	hook.Add("TTT2SpecialRoleSyncing", "DefectiveSpecialRoleSyncing", function (ply, tbl)
 		if not ply or GetRoundState() == ROUND_POST then 
 			return
 		end
 		
+		--Cache boolean to save some processing time.
 		local can_reveal_dead_def = CanADeadDefBeRevealed()
 		
 		for ply_i in pairs(tbl) do
+			if not ply_i:IsTerror() or ply_i == ply then
+				continue
+			end
+			
 			--Handle how everyone sees a defective
-			if ply_i:IsTerror() and ply_i ~= ply and ply_i:GetSubRole() == ROLE_DEFECTIVE then
+			if ply:GetSubRole() ~= ROLE_DEFECTIVE and ply_i:GetSubRole() == ROLE_DEFECTIVE then
 				if not ply_i:Alive() and can_reveal_dead_def then
 					--Do not mess with dead def's apparent role.
 					continue
@@ -247,29 +252,61 @@ if SERVER then
 				end
 			end
 			
-			if GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
-				--Allow for the defective to see their fellow traitors.
-				if ply_i:IsTerror() and ply_i ~= ply and ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:HasTeam(TEAM_TRAITOR) then
+			--Handle how defectives see traitors
+			if ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:GetSubRole() ~= ROLE_DEFECTIVE and ply_i:HasTeam(TEAM_TRAITOR) then
+				if GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
+					--Allow for the defective to see their fellow traitors.
 					tbl[ply_i] = {ply_i:GetSubRole(), ply_i:GetTeam()}
+				else
+					--Force all traitors to look like innocents to the defective
+					tbl[ply_i] = {ROLE_INNOCENT, TEAM_INNOCENT}
+				end
+			end
+			
+			--Handle how defectives see other defectives
+			if ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:GetSubRole() == ROLE_DEFECTIVE then
+				if GetConVar("ttt2_defective_can_see_defectives"):GetBool() then
+					tbl[ply_i] = {ROLE_DEFECTIVE, TEAM_TRAITOR}
+				else
+					tbl[ply_i] = {ROLE_DETECTIVE, TEAM_INNOCENT}
 				end
 			end
 		end
 	end)
 	
-	--Taken mostly from the Spy role.
 	hook.Add("TTT2ModifyRadarRole", "DefectiveModifyRadarRole", function(ply, target)
-		--Make defectives look like detectives when an innocent role uses a radar.
-		if (not ply:HasTeam(TEAM_TRAITOR) or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool()) and target:GetSubRole() == ROLE_DEFECTIVE then
-			return ROLE_DETECTIVE, TEAM_INNOCENT
+		--Handle how everyone sees a defective
+		if ply:GetSubRole() ~= ROLE_DEFECTIVE and target:GetSubRole() == ROLE_DEFECTIVE then
+			if not ply:HasTeam(TEAM_TRAITOR) or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
+				--Make the defective look like a detective to all non-traitors.
+				return ROLE_DETECTIVE, TEAM_INNOCENT
+			else
+				--Reveal the defective's role to their team mates
+				return ROLE_DEFECTIVE, TEAM_TRAITOR
+			end
 		end
 		
-		--Make fellow team mates (but not the jester!) look like innocents if the def isn't supposed to see them
-		if ply:GetSubRole() == ROLE_DEFECTIVE and target:HasTeam(TEAM_TRAITOR) and not GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
-			return ROLE_INNOCENT, TEAM_INNOCENT
+		--Handle how defectives see traitors
+		if ply:GetSubRole() == ROLE_DEFECTIVE and target:GetSubRole() ~= ROLE_DEFECTIVE and target:HasTeam(TEAM_TRAITOR) then
+			if GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
+				--Allow for the defective to see their fellow traitors.
+				return target:GetSubRole(), target:GetTeam()
+			else
+				--Force all traitors to look like innocents to the defective
+				return ROLE_INNOCENT, TEAM_INNOCENT
+			end
+		end
+		
+		--Handle how defectives see other defectives
+		if ply:GetSubRole() == ROLE_DEFECTIVE and target:GetSubRole() == ROLE_DEFECTIVE then
+			if GetConVar("ttt2_defective_can_see_defectives"):GetBool() then
+				return ROLE_DEFECTIVE, TEAM_TRAITOR
+			else
+				return ROLE_DETECTIVE, TEAM_INNOCENT
+			end
 		end
 	end)
 	
-	--Taken mostly from the Spy role.
 	hook.Add("TTT2AvoidTeamChat", "DefectiveAvoidTeamChat", function(sender, tm, msg)
 		--Only jam traitor team chat
 		if not tm == TEAM_TRAITOR or not IsValid(sender) or not sender:HasTeam(TEAM_TRAITOR) then
@@ -289,7 +326,6 @@ if SERVER then
 		end
 	end)
 	
-	--Taken mostly from the Spy role.
 	hook.Add("TTT2CanUseVoiceChat", "DefectiveCanUseVoiceChat", function(speaker, isTeamVoice)
 		--Only jam traitor team voice
 		if not isTeamVoice or not IsValid(speaker) or not speaker:HasTeam(TEAM_TRAITOR) then
@@ -428,19 +464,16 @@ if SERVER then
 		SCORE:HandleCreditFound(ply, corpseNick, credits)
 	end
 	
-	--Taken mostly from the Spy role.
 	hook.Add("TTTCanSearchCorpse", "DefectiveCanSearchCorpse", function(ply, corpse, isCovert, isLongRange)
 		if not corpse then
 			return
 		end
 		
-		if not CanADeadDefBeRevealed() then
-			--Show all defectives (and potentially all special detective roles) as detectives when searched.
-			if corpse.was_role == ROLE_DEFECTIVE then
-				corpse.was_role = ROLE_DETECTIVE
-				corpse.was_team = TEAM_INNOCENT
-				corpse.role_color = DETECTIVE.color
-			end
+		--Show all defectives as detectives when searched.
+		if corpse.was_role == ROLE_DEFECTIVE and not CanADeadDefBeRevealed() then
+			corpse.was_role = ROLE_DETECTIVE
+			corpse.was_team = TEAM_INNOCENT
+			corpse.role_color = DETECTIVE.color
 		end
 		
 		if not AllowDetsToInspect() then
@@ -465,7 +498,6 @@ if SERVER then
 		end
 	end)
 	
-	--Taken mostly from the Spy role.
 	hook.Add("TTT2ConfirmPlayer", "DefectiveConfirmPlayer", function(confirmed, finder, corpse)
 		if IsValid(confirmed) and corpse and confirmed:GetSubRole() == ROLE_DEFECTIVE and not CanADeadDefBeRevealed() then
 			--Confirm player as a detective
@@ -479,7 +511,6 @@ if SERVER then
 		end
 	end)
 	
-	--Taken mostly from the Spy role.
 	hook.Add("TTTBodyFound", "DefectiveBodyFound", function(_, confirmed, corpse)
 		--Only continue if we are set up to reveal the det's and def's roles.
 		if not CanADeadDefBeRevealed() then

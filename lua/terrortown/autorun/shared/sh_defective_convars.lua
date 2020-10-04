@@ -4,6 +4,7 @@ CreateConVar("ttt2_defective_shop_order_prevention", "0", {FCVAR_ARCHIVE, FCVAR_
 CreateConVar("ttt2_defective_detective_immunity", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_can_see_traitors", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_can_be_seen_by_traitors", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
+CreateConVar("ttt2_defective_can_see_defectives", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_corpse_reveal_mode", "0", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_special_det_handling_mode", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 
@@ -53,6 +54,14 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 		desc = "ttt2_defective_can_be_seen_by_traitors (Def: 1)"
 	})
 	
+	--# Can the defective see their fellow defectives?
+	--  ttt2_defective_can_see_defectives [0/1] (default: 1)
+	table.insert(tbl[ROLE_DEFECTIVE], {
+		cvar = "ttt2_defective_can_see_defectives",
+		checkbox = true,
+		desc = "ttt2_defective_can_see_defectives (Def: 1)"
+	})
+	
 	--# When should def's true role be revealed?
 	--  ttt2_defective_corpse_reveal_mode [0..3] (default: 0)
 	--  # 0: Search never reveals def's role
@@ -96,6 +105,7 @@ hook.Add("TTT2SyncGlobals", "AddDefectiveGlobals", function()
 	SetGlobalBool("ttt2_defective_detective_immunity", GetConVar("ttt2_defective_detective_immunity"):GetBool())
 	SetGlobalBool("ttt2_defective_can_see_traitors", GetConVar("ttt2_defective_can_see_traitors"):GetBool())
 	SetGlobalBool("ttt2_defective_can_be_seen_by_traitors", GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool())
+	SetGlobalBool("ttt2_defective_can_see_defectives", GetConVar("ttt2_defective_can_see_defectives"):GetBool())
 	SetGlobalInt("ttt2_defective_corpse_reveal_mode", GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt())
 	SetGlobalInt("ttt2_defective_special_det_handling_mode", GetConVar("ttt2_defective_special_det_handling_mode"):GetInt())
 end)
@@ -114,6 +124,9 @@ cvars.AddChangeCallback("ttt2_defective_can_see_traitors", function(name, old, n
 end)
 cvars.AddChangeCallback("ttt2_defective_can_be_seen_by_traitors", function(name, old, new)
 	SetGlobalBool("ttt2_defective_can_be_seen_by_traitors", tobool(tonumber(new)))
+end)
+cvars.AddChangeCallback("ttt2_defective_can_see_defectives", function(name, old, new)
+	SetGlobalBool("ttt2_defective_can_see_defectives", tobool(tonumber(new)))
 end)
 cvars.AddChangeCallback("ttt2_defective_corpse_reveal_mode", function(name, old, new)
 	SetGlobalInt("ttt2_defective_corpse_reveal_mode", tonumber(new))

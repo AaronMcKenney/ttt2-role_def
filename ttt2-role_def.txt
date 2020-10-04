@@ -15,6 +15,7 @@ Visually and functionally, the defective operates similarly to a regular detecti
     [*][URL=https://steamcommunity.com/sharedfiles/filedetails/?id=1683708655]Spy[/URL]
     [*][URL=https://steamcommunity.com/sharedfiles/filedetails/?id=2137829511]Mesmerist[/URL]
     [*][URL=https://steamcommunity.com/sharedfiles/filedetails/?id=1795539570]Bodyguard[/URL]
+	[*]2+ Detectives.
 [/list]
  
  
@@ -42,12 +43,14 @@ Convars are variables that are introduced to allow server owners to customize th
   # You can use this as a way to prevent the detective from purchasing a portable tester, golden deagle, etc. when a defective is active.
   # Do not enable if ttt2_random_team_shops is enabled (may prevent dets from purchasing most things at random).
   ttt2_defective_shop_order_prevention [0/1] (default: 0)
-# Prevent all defectives and detectives from harming one another (unless all other members on their team are dead)?
+# Prevent all defectives and detectives from harming one another (unless all other members on their teams are dead)?
   ttt2_defective_detective_immunity [0/1] (default: 1)
 # Can the defective see their fellow team mates (e.g. traitors, bodyguards, etc.)?
   ttt2_defective_can_see_traitors [0/1] (default: 1)
 # Are traitors informed about who the defective is?
   ttt2_defective_can_be_seen_by_traitors [0/1] (default: 1)
+# Can the defective see their fellow defectives?
+  ttt2_defective_can_see_defectives [0/1] (default: 1)
 # When should def's true role be revealed?
   ttt2_defective_corpse_reveal_mode [0..3] (default: 0)
   # 0: Search never reveals def's role

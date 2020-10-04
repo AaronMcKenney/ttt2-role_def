@@ -15,7 +15,16 @@ ttt2_defective_detective_immunity:
 --If ttt2_defective_detective_immunity is set and there are no innocents and at least one traitor, then the defective and detective cannot harm one another.
 --If ttt2_defective_detective_immunity is set but there are no innocents and no traitors, then the defective an detective can harm one another.
 
-ttt2_defective_can_see_traitors:
+Others looking at the defective:
+--If ttt2_defective_can_be_seen_by_traitors is enabled, then:
+	--The defective appears as a defective to traitors.
+	--The traitor's radar shows defectives in red. 
+--If ttt2_defective_can_be_seen_by_traitors is disabled, then:
+	--The defective appears as a detective to traitors.
+	--The traitor's radar shows defectives in green.
+	--(MULTIPLAYER TEST!!!)Team chat and voice chat is turned off for defectives.
+	
+Defective looking at others:
 --If ttt2_defective_can_see_traitors is enabled, then:
 	--The defective can see traitors.
 	--The defective's radar shows traitors in red.
@@ -24,14 +33,13 @@ ttt2_defective_can_see_traitors:
 	--The defective's radar shows traitors in green.
 	--(MULTIPLAYER TEST!!!)Team chat and voice chat is turned off if any defectives are alive.
 
-ttt2_defective_can_be_seen_by_traitors:
---If ttt2_defective_can_be_seen_by_traitors is enabled, then:
-	--The defective appears a defective to traitors.
-	--The traitor's radar shows defectives in red. 
---If ttt2_defective_can_be_seen_by_traitors is disabled, then:
-	--The defective appears as a detective to traitors.
-	--The traitor's radar shows defectives in blue.
-	--(MULTIPLAYER TEST!!!)Team chat and voice chat is turned off for defectives.
+Defective looking at defectives:
+--If ttt2_defective_can_see_defectives is enabled, then:
+	--The defective looks like a defective to other defectives.
+	--The defective's radar shows defectives in red.
+--If ttt2_defective_can_see_defectives is disabled, then:
+	--The defective looks like a detective to other defectives.
+	--The defective's radar shows defectives in green.
 
 ttt2_defective_corpse_reveal_mode:
 --If reveal mode is set to NEVER, then the defectives will never be revealed by a body search.
@@ -51,3 +59,6 @@ credits:
 --The defective gains ttt_det_credits_traitordead credits for every traitor they kill.
 --(MULTIPLAYER TEST!!!)Detectives gain ttt_det_credits_traitordead credits for every traitor a defective kills.
 --(MULTIPLAYER TEST!!!)Defectives gain ttt_det_credits_traitordead credits for every traitor a detective kills.
+
+call button:
+--If a player calls a detective over to a body, both detectives and defectives will be informed.
