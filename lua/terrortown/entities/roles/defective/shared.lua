@@ -16,7 +16,7 @@ function ROLE:PreInitialize()
 	self.scoreKillsMultiplier = 1
 	self.scoreTeamKillsMultiplier = -8
 	self.fallbackTable = {}
-	self.unknownTeam = true
+	self.unknownTeam = false --Enables traitor chat (among other things).
 	
 	--The defective may pick up any credits they find off of dead bodies (especially their fellow traitors)
 	--However, they already gain credits in the same way as the detective, so it would be double-dipping to give them credits in the same way as the traitor.
@@ -313,15 +313,15 @@ if SERVER then
 			return
 		end
 		
-		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and sender:HasTeam(TEAM_TRAITOR) and AtLeastOneDefLives() then
-			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
-			LANG.Msg(speaker, "prevent_tra_to_def_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+		if (not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() or not GetConVar("ttt2_defective_can_see_defectives"):GetBool()) and sender:GetSubRole() == ROLE_DEFECTIVE then
+			--Prevent defective from talking to their team mates through traitor chat, which would reveal their role to the traitors.
+			LANG.Msg(speaker, "prevent_def_to_tra_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
 			return false
 		end
 		
-		if not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() and sender:GetSubRole() == ROLE_DEFECTIVE then
-			--Prevent defective from talking to their team mates through traitor chat, which would reveal their role to the traitors.
-			LANG.Msg(speaker, "prevent_def_to_tra_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and sender:HasTeam(TEAM_TRAITOR) and AtLeastOneDefLives() then
+			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
+			LANG.Msg(speaker, "prevent_tra_to_def_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
 			return false
 		end
 	end)
@@ -332,15 +332,15 @@ if SERVER then
 			return
 		end
 		
-		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and speaker:HasTeam(TEAM_TRAITOR) and AtLeastOneDefLives() then
-			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
-			LANG.Msg(speaker, "prevent_tra_to_def_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+		if (not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() or not GetConVar("ttt2_defective_can_see_defectives"):GetBool()) and speaker:GetSubRole() == ROLE_DEFECTIVE then
+			--Prevent defective from talking to their team mates through traitor chat, which would reveal their role to the traitors.
+			LANG.Msg(speaker, "prevent_def_to_tra_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
 			return false
 		end
 		
-		if not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() and speaker:GetSubRole() == ROLE_DEFECTIVE then
-			--Prevent defective from talking to their team mates through traitor chat, which would reveal their role to the traitors.
-			LANG.Msg(speaker, "prevent_def_to_tra_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and speaker:HasTeam(TEAM_TRAITOR) and AtLeastOneDefLives() then
+			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
+			LANG.Msg(speaker, "prevent_tra_to_def_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
 			return false
 		end
 	end)
@@ -420,7 +420,12 @@ if SERVER then
 				end
 			end
 			
+			--Always inform defectives of the credits they have received.
 			LANG.Msg(GetRoleChatFilter(ROLE_DEFECTIVE, true), "credit_all", {num = amt})
+			if attacker:GetSubRole() == ROLE_DEFECTIVE then
+				--Only inform detectives of credits they receive from defectives (they will already be sent a popup if the attacker was a fellow detective).
+				LANG.Msg(GetRoleChatFilter(ROLE_DETECTIVE, true), "credit_all", {num = amt})
+			end
 		end
 	end)
 	
