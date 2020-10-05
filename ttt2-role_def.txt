@@ -33,7 +33,7 @@ Convars are variables that are introduced to allow server owners to customize th
 # the probability each round of this role being spawned at all
   ttt_defective_random [0..100] (default: 30)
 # the amount of players needed for this role to spawn
-  ttt_defective_min_players: [0..n] (default: 8)[/code]
+  ttt_defective_min_players: [0..n] (default: 10)[/code]
  
 [h1]Rolespecific Convars:[/h1]
 [code]# Send a popup message if there's a defective at the start of the round?

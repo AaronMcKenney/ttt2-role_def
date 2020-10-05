@@ -32,7 +32,8 @@ function ROLE:PreInitialize()
 	self.conVarData = {
 		pct = 0.13,
 		maximum = 1,
-		minPlayers = 8,
+		minPlayers = 10,
+		random = 30,
 		minKarma = 600,
 		traitorButton = 1, --can use traitor buttons
 		
