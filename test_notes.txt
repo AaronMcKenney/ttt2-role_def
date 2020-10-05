@@ -45,7 +45,7 @@ ttt2_defective_corpse_reveal_mode:
 --If reveal mode is set to NEVER, then the defectives will never be revealed by a body search.
 --If reveal mode is set to ALL_DEAD, then the defectives may only be revealed by a body search if all detectives and defectives are dead.
 --If reveal mode is set to ALL_DEF_DEAD, then the defectives may only be revealed by a body search if all defectives are dead.
---If reveal mode is set to ON_DEATH, then the defectives will be revealed upon a body searched.
+--If reveal mode is set to ALWAYS, then the defectives will be revealed upon a body searched.
 
 ttt2_defective_special_det_handling_mode:
 --If the mode is set to NEVER, then special detectives remain unchanged.
@@ -53,6 +53,16 @@ ttt2_defective_special_det_handling_mode:
 --If the mode is set to JAM_TEMP, then at first it behaves as JAM, but the affected are given back their previous roles (and special equipment) when every defective has been or can be revealed.
 --If the mode is set to JAM_TEMP, and a sniffer is in play, the sniffer becomes a normal det. If that det is then converted into an infected and all defs are killed, then the infected does not become a sniffer.
 --If the mode is set to JAM_TEMP, and a sniffer is in play, the sniffer becomes a normal det. That det is then converted into an infected, and then converted back into a normal det. If all defs are killed, then the det is not converted back into a sniffer.
+
+ttt2_inspect_detective_only:
+--If this is set, then detectives may not inspect a body until all defectives can be revealed. If they attempt to do so they'll get a warning instead.
+--If reveal mode allows for defectives to be revealed on death (ALL_DEF_DEAD or ALWAYS), then the prompt will warn of living defectives, and prevent searches until all defs are dead.
+--If reveal mode does not allow for defectives to be revealed on death (NEVER) or requires detectives to be dead as well (ALL_DEAD), then the prompt will warn of existing defectives, and prevent searches until no player is defective (living or dead)
+
+ttt2_confirm_detective_only:
+--If this is set, then detectives may not confirm a body until all defectives can be revealed. If they attempt to do so they'll get a warning instead.
+--If reveal mode allows for defectives to be revealed on death (ALL_DEF_DEAD or ALWAYS), then the prompt will warn of living defectives, and prevent searches until all defs are dead.
+--If reveal mode does not allow for defectives to be revealed on death (NEVER) or requires detectives to be dead as well (ALL_DEAD), then the prompt will warn of existing defectives, and prevent searches until no player is defective (living or dead)
 
 credits:
 --The defective starts with the number of credits that the detective starts with.
