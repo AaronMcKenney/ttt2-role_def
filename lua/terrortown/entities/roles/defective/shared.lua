@@ -3,7 +3,9 @@ if SERVER then
 	--resource.AddFile("materials/vgui/ttt/dynamic/roles/icon_det.vmt")
 	--The Defective's icon
 	resource.AddFile("materials/vgui/ttt/dynamic/roles/icon_def.vmt")
+	
 	util.AddNetworkString("TTT2DefectiveInformEveryone")
+	util.AddNetworkString("TTT2AtLeastOneDefectiveLives_TraitorOnly")
 end
 
 function ROLE:PreInitialize()
@@ -171,6 +173,19 @@ if SERVER then
 		end
 	end
 	
+	local function SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
+		--This is more or less a hack to sync up TTT2CanUseVoiceChat Server and Client hooks
+		--Explicitly to handle the case where traitor team voice chat is disabled due to a living defective that traitors aren't supposed to talk to.
+		local at_least_one_def_lives = AtLeastOneDefLives()
+		for _, ply in pairs(player.GetAll()) do
+			if ply:GetBaseRole() == ROLE_TRAITOR then
+				net.Start("TTT2AtLeastOneDefectiveLives_TraitorOnly")
+				net.WriteBool(at_least_one_def_lives)
+				net.Send(ply)
+			end
+		end
+	end
+	
 	hook.Add("TTTBeginRound", "DefectiveBeginRound", function()
 		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
 		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
@@ -185,6 +200,8 @@ if SERVER then
 			net.Start("TTT2DefectiveInformEveryone")
 			net.Broadcast()
 		end
+		
+		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
 	end)
 	
 	hook.Add("TTT2UpdateSubrole", "DefectiveUpdateSubrole", function(self, oldSubrole, subrole)
@@ -202,6 +219,8 @@ if SERVER then
 		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
 			JamDetective(self, base_role, subrole)
 		end
+		
+		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
 	end)
 	
 	function ROLE:GiveRoleLoadout(ply, isRoleChange)
@@ -316,18 +335,18 @@ if SERVER then
 		
 		if (not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() or not GetConVar("ttt2_defective_can_see_defectives"):GetBool()) and sender:GetSubRole() == ROLE_DEFECTIVE then
 			--Prevent defective from talking to their team mates through traitor chat, which would reveal their role to the traitors.
-			LANG.Msg(speaker, "prevent_def_to_tra_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+			LANG.Msg(sender, "prevent_def_to_tra_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
 			return false
 		end
 		
-		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and sender:HasTeam(TEAM_TRAITOR) and AtLeastOneDefLives() then
+		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and sender:GetSubRole() ~= ROLE_DEFECTIVE and AtLeastOneDefLives() then
 			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
-			LANG.Msg(speaker, "prevent_tra_to_def_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
+			LANG.Msg(sender, "prevent_tra_to_def_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
 			return false
 		end
 	end)
 	
-	hook.Add("TTT2CanUseVoiceChat", "DefectiveCanUseVoiceChat", function(speaker, isTeamVoice)
+	hook.Add("TTT2CanUseVoiceChat", "DefectiveServerCanUseVoiceChat", function(speaker, isTeamVoice)
 		--Only jam traitor team voice
 		if not isTeamVoice or not IsValid(speaker) or not speaker:HasTeam(TEAM_TRAITOR) then
 			return
@@ -339,7 +358,7 @@ if SERVER then
 			return false
 		end
 		
-		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and speaker:HasTeam(TEAM_TRAITOR) and AtLeastOneDefLives() then
+		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and speaker:GetSubRole() ~= ROLE_DEFECTIVE and AtLeastOneDefLives() then
 			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
 			LANG.Msg(speaker, "prevent_tra_to_def_comm_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
 			return false
@@ -397,6 +416,8 @@ if SERVER then
 				end
 			end
 		end
+		
+		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
 	end)
 	
 	hook.Add("TTT2CheckCreditAward", "DefectiveCreditAward", function(victim, attacker)
@@ -562,7 +583,39 @@ if SERVER then
 end
 
 if CLIENT then
+	local at_least_one_def_lives_traitor_only = false
+	local function ResetDefectivePlayerDataForClient()
+		--Initialize data that this client needs to know, but must be kept secret from other clients.
+		at_least_one_def_lives_traitor_only = false
+	end
+	hook.Add("TTTEndRound", "ResetDefectiveForClientOnEndRound", ResetDefectivePlayerDataForClient)
+	hook.Add("TTTPrepareRound", "ResetDefectiveForClientOnPrepareRound", ResetDefectivePlayerDataForClient)
+	hook.Add("TTTBeginRound", "ResetDefectiveForClientOnBeginRound", ResetDefectivePlayerDataForClient)
+	
 	net.Receive("TTT2DefectiveInformEveryone", function()
 		EPOP:AddMessage({text = LANG.GetTranslation("inform_everyone_" .. DEFECTIVE.name), color = DEFECTIVE.color}, "", 6)
+	end)
+	
+	net.Receive("TTT2AtLeastOneDefectiveLives_TraitorOnly", function()
+		at_least_one_def_lives_traitor_only = net.ReadBool()
+	end)
+	
+	hook.Add("TTT2CanUseVoiceChat", "DefectiveClientCanUseVoiceChat", function(speaker, isTeamVoice)
+		--This is mostly copied from the server-side hook. Client also needs a hook here for VGUI stuff.
+		
+		--Only jam traitor team voice
+		if not isTeamVoice or not IsValid(speaker) or not speaker:HasTeam(TEAM_TRAITOR) then
+			return
+		end
+		
+		if (not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() or not GetConVar("ttt2_defective_can_see_defectives"):GetBool()) and speaker:GetSubRole() == ROLE_DEFECTIVE then
+			--Prevent defective from talking to their team mates through traitor chat, which would reveal their role to the traitors.
+			return false
+		end
+		
+		if not GetConVar("ttt2_defective_can_see_traitors"):GetBool() and speaker:GetSubRole() ~= ROLE_DEFECTIVE and at_least_one_def_lives_traitor_only then
+			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
+			return false
+		end
 	end)
 end

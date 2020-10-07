@@ -22,7 +22,9 @@ Others looking at the defective:
 --If ttt2_defective_can_be_seen_by_traitors is disabled, then:
 	--The defective appears as a detective to traitors.
 	--The traitor's radar shows defectives in green.
-	--(MULTIPLAYER TEST!!!)Team chat and voice chat is turned off for defectives.
+	--(MULTIPLAYER TEST!!!)Team chat is turned off if any defectives are alive.
+	--(MULTIPLAYER TEST!!!)Voice chat is turned off if any defectives are alive.
+	--(MULTIPLAYER TEST!!!)General chat and general voice chat is still available for defectives.
 	
 Defective looking at others:
 --If ttt2_defective_can_see_traitors is enabled, then:
@@ -33,6 +35,7 @@ Defective looking at others:
 	--The defective's radar shows traitors in green.
 	--(MULTIPLAYER TEST!!!)Team chat is turned off if any defectives are alive.
 	--(MULTIPLAYER TEST!!!)Voice chat is turned off if any defectives are alive.
+	--(MULTIPLAYER TEST!!!)General chat and general voice chat is still available for defectives.
 
 Defective looking at defectives:
 --If ttt2_defective_can_see_defectives is enabled, then:
@@ -41,8 +44,9 @@ Defective looking at defectives:
 --If ttt2_defective_can_see_defectives is disabled, then:
 	--The defective looks like a detective to other defectives.
 	--The defective's radar shows defectives in green.
-	--(MULTIPLAYER TEST!!!)Team chat is turned off for defectives.
-	--(MULTIPLAYER TEST!!!)Voice chat is turned off for defectives.
+	--(MULTIPLAYER TEST!!!)Team chat is turned off if any defectives are alive.
+	--(MULTIPLAYER TEST!!!)Voice chat is turned off if any defectives are alive.
+	--(MULTIPLAYER TEST!!!)General chat and general voice chat is still available for defectives.
 
 ttt2_defective_corpse_reveal_mode:
 --If reveal mode is set to NEVER, then the defectives will never be revealed by a body search.
