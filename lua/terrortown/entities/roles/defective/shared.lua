@@ -186,6 +186,20 @@ if SERVER then
 		end
 	end
 	
+	hook.Add("TTTPrepareRound", "DefectivePrepareRound", function()
+		--Maybe at some point allow for these parameters to be modified mid-game... but for now this is fine.
+		--Set these vars in PrepareRound as opposed to BeginRound to cover the extremely important edge case wherein the defective spawns and is all by himself.
+		if GetConVar("ttt2_defective_gain_traitor_credits"):GetBool() then
+			--Traitor defaults (gain credits from murdering non-team mates and being the only traitor)
+			DEFECTIVE.preventKillCredits = false
+			DEFECTIVE.preventTraitorAloneCredits = false
+		else
+			--Detective defaults
+			DEFECTIVE.preventKillCredits = true
+			DEFECTIVE.preventTraitorAloneCredits = true
+		end
+	end)
+	
 	hook.Add("TTTBeginRound", "DefectiveBeginRound", function()
 		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
 		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then

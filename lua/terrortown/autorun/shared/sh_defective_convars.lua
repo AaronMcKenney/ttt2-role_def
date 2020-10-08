@@ -2,6 +2,7 @@
 CreateConVar("ttt2_defective_inform_everyone", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_shop_order_prevention", "0", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_detective_immunity", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
+CreateConVar("ttt2_defective_gain_traitor_credits", "0", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_can_see_traitors", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_can_be_seen_by_traitors", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_can_see_defectives", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
@@ -36,6 +37,14 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 		cvar = "ttt2_defective_detective_immunity",
 		checkbox = true,
 		desc = "ttt2_defective_detective_immunity (Def: 1)"
+	})
+	
+	--# Should the defective gain credits from innocent kills (on top of gaining credits from being a "detective")?
+	--  ttt2_defective_gain_traitor_credits [0/1] (default: 0)
+	table.insert(tbl[ROLE_DEFECTIVE], {
+		cvar = "ttt2_defective_gain_traitor_credits",
+		checkbox = true,
+		desc = "ttt2_defective_gain_traitor_credits (Def: 0)"
 	})
 	
 	--# Can the defective see their fellow team mates (e.g. traitors, bodyguards, etc.)?
@@ -89,7 +98,7 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 	table.insert(tbl[ROLE_DEFECTIVE], {
 		cvar = "ttt2_defective_special_det_handling_mode",
 		combobox = true,
-		desc = "ttt2_defective_special_det_handling_mode (Def: 0)",
+		desc = "ttt2_defective_special_det_handling_mode (Def: 1)",
 		choices = {
 			"0 - Do not alter special dets",
 			"1 - Force all special dets to be normal dets",
@@ -103,6 +112,7 @@ hook.Add("TTT2SyncGlobals", "AddDefectiveGlobals", function()
 	SetGlobalBool("ttt2_defective_inform_everyone", GetConVar("ttt2_defective_inform_everyone"):GetBool())
 	SetGlobalBool("ttt2_defective_shop_order_prevention", GetConVar("ttt2_defective_shop_order_prevention"):GetBool())
 	SetGlobalBool("ttt2_defective_detective_immunity", GetConVar("ttt2_defective_detective_immunity"):GetBool())
+	SetGlobalBool("ttt2_defective_gain_traitor_credits", GetConVar("ttt2_defective_gain_traitor_credits"):GetBool())
 	SetGlobalBool("ttt2_defective_can_see_traitors", GetConVar("ttt2_defective_can_see_traitors"):GetBool())
 	SetGlobalBool("ttt2_defective_can_be_seen_by_traitors", GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool())
 	SetGlobalBool("ttt2_defective_can_see_defectives", GetConVar("ttt2_defective_can_see_defectives"):GetBool())
@@ -118,6 +128,9 @@ cvars.AddChangeCallback("ttt2_defective_shop_order_prevention", function(name, o
 end)
 cvars.AddChangeCallback("ttt2_defective_detective_immunity", function(name, old, new)
 	SetGlobalBool("ttt2_defective_detective_immunity", tobool(tonumber(new)))
+end)
+cvars.AddChangeCallback("ttt2_defective_gain_traitor_credits", function(name, old, new)
+	SetGlobalBool("ttt2_defective_gain_traitor_credits", tobool(tonumber(new)))
 end)
 cvars.AddChangeCallback("ttt2_defective_can_see_traitors", function(name, old, new)
 	SetGlobalBool("ttt2_defective_can_see_traitors", tobool(tonumber(new)))

@@ -45,6 +45,8 @@ Convars are variables that are introduced to allow server owners to customize th
   ttt2_defective_shop_order_prevention [0/1] (default: 0)
 # Prevent all defectives and detectives from harming one another (unless all other members on their teams are dead)?
   ttt2_defective_detective_immunity [0/1] (default: 1)
+# Should the defective gain credits from innocent kills (on top of gaining credits from being a "detective")?
+  ttt2_defective_gain_traitor_credits [0/1] (default: 0)
 # Can the defective see their fellow team mates (e.g. traitors, bodyguards, etc.)?
   ttt2_defective_can_see_traitors [0/1] (default: 1)
 # Are traitors informed about who the defective is?

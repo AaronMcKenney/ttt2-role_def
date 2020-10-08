@@ -74,6 +74,8 @@ ttt2_confirm_detective_only:
 credits:
 --The defective starts with the number of credits that the detective starts with.
 --The defective gains ttt_det_credits_traitordead credits for every traitor they kill.
+--If ttt2_defective_gain_traitor_credits is disabled, the defective does not get credits for murdering innocents.
+--If ttt2_defective_gain_traitor_credits is enabled, the defective gains credits for murdering innocents, at the same rate as traitors.
 --(MULTIPLAYER TEST!!!)Detectives gain ttt_det_credits_traitordead credits for every traitor a defective kills.
 --(MULTIPLAYER TEST!!!)Defectives gain ttt_det_credits_traitordead credits for every traitor a detective kills.
 
