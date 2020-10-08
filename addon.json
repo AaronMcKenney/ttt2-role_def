@@ -1,13 +1,13 @@
 {
-	"title"		:	"[TTT2] Beacon [ROLE]",
+	"title"		:	"[TTT2] Defective [ROLE]",
 	"type"		:	"ServerContent",
     "tags"		:	[ "roleplay", "fun" ],
     "ignore"    : [
         ".git/*",
         ".gitignore",
         "README.md",
-        "ttt2-role_beac.jpg",
-        "ttt2-role_beac.txt",
+        "ttt2-role_def.jpg",
+        "ttt2-role_def.txt",
         "test_notes.txt"
     ]
 }
