@@ -1,9 +1,6 @@
 if SERVER then
-	--The Detective's icon
-	--resource.AddFile("materials/vgui/ttt/dynamic/roles/icon_det.vmt")
-	--The Defective's icon
+	AddCSLuaFile()
 	resource.AddFile("materials/vgui/ttt/dynamic/roles/icon_def.vmt")
-	
 	util.AddNetworkString("TTT2DefectiveInformEveryone")
 	util.AddNetworkString("TTT2AtLeastOneDefectiveLives_TraitorOnly")
 end
@@ -15,8 +12,8 @@ function ROLE:PreInitialize()
 	self.color = Color(58, 27, 169, 255)
 	
 	self.abbr = "def"
-	self.scoreKillsMultiplier = 1
-	self.scoreTeamKillsMultiplier = -8
+	self.scoreKillsMultiplier = 2
+	self.scoreTeamKillsMultiplier = -1
 	self.fallbackTable = {}
 	self.unknownTeam = false --Enables traitor chat (among other things).
 	
