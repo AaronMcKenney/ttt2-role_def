@@ -542,7 +542,7 @@ if SERVER then
 			confirmed:ConfirmPlayer(true)
 			SendRoleListMessage(ROLE_DETECTIVE, TEAM_INNOCENT, {confirmed:EntIndex()})
 			--Update the scoreboard to show the def as a det.
-			SCORE:HandleBodyFound(finder, confirmed)
+			events.Trigger(EVENT_BODYFOUND, finder, corpse)
 			
 			--Prevent traditional player confirmation from occurring (which would reveal the def).
 			return false
