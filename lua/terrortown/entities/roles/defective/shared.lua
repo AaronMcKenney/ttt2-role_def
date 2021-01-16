@@ -21,8 +21,8 @@ function ROLE:PreInitialize()
 	--However, they already gain credits in the same way as the detective, so it would be double-dipping to give them credits in the same way as the traitor.
 	--This does in fact provide an incentive to the defective to kill their fellow traitors.
 	self.preventFindCredits = false
-	self.preventKillCredits = true
-	self.preventTraitorAloneCredits = true
+	self.preventKillCredits = not GetConVar("ttt2_defective_gain_traitor_credits"):GetBool()
+	self.preventTraitorAloneCredits = not GetConVar("ttt2_defective_gain_traitor_credits"):GetBool()
 	
 	self.defaultTeam = TEAM_TRAITOR
 	self.defaultEquipment = SPECIAL_EQUIPMENT
@@ -182,20 +182,6 @@ if SERVER then
 			end
 		end
 	end
-	
-	hook.Add("TTTPrepareRound", "DefectivePrepareRound", function()
-		--Maybe at some point allow for these parameters to be modified mid-game... but for now this is fine.
-		--Set these vars in PrepareRound as opposed to BeginRound to cover the extremely important edge case wherein the defective spawns and is all by himself.
-		if GetConVar("ttt2_defective_gain_traitor_credits"):GetBool() then
-			--Traitor defaults (gain credits from murdering non-team mates and being the only traitor)
-			DEFECTIVE.preventKillCredits = false
-			DEFECTIVE.preventTraitorAloneCredits = false
-		else
-			--Detective defaults
-			DEFECTIVE.preventKillCredits = true
-			DEFECTIVE.preventTraitorAloneCredits = true
-		end
-	end)
 	
 	hook.Add("TTTBeginRound", "DefectiveBeginRound", function()
 		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
