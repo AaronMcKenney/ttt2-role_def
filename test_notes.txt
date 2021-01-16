@@ -81,3 +81,7 @@ credits:
 
 call button:
 --If a player calls a detective over to a body, both detectives and defectives will be informed.
+
+ttt2_defective_disable_spawn_if_no_detective:
+--If this is set and there are detectives, a defective can spawn as usual.
+--If this is set and there are no detectives, then all defectives become traitors in the beginning of the round. They do not show up on the scoreboard or target hud as detectives, and do not start with a DNA Scanner. 

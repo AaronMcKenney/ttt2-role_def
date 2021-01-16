@@ -63,7 +63,9 @@ Convars are variables that are introduced to allow server owners to customize th
   ttt2_defective_special_det_handling_mode [0..2] (default: 1)
   # 0: Do not alter special dets
   # 1: Force all special dets to be normal dets
-  # 2: Force all special dets to be normal dets, but give them back their roles if: all defs are dead, defs can be revealed, and the former special det didn't undergo a role change (ex. did not become infected)[/code]
+  # 2: Force all special dets to be normal dets, but give them back their roles if: all defs are dead, defs can be revealed, and the former special det didn't undergo a role change (ex. did not become infected)
+# If there are no detectives at the beginning of the round, should any player with this role be forced into a generic Traitor role?
+  ttt2_defective_disable_spawn_if_no_detective [0/1] (default: 1)[/code]
  
 --
 [h1]Credits:[/h1]

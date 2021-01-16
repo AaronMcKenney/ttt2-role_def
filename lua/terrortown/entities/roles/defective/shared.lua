@@ -76,6 +76,16 @@ if SERVER then
 		return false
 	end
 	
+	local function AtLeastOneDetExists()
+		for _, ply in pairs(player.GetAll()) do
+			if ply:GetBaseRole() == ROLE_DETECTIVE then
+				return true
+			end
+		end
+		
+		return false
+	end
+	
 	local function AtLeastOneDefLives()
 		for _, ply in pairs(player.GetAll()) do
 			if ply:IsTerror() and ply:Alive() and ply:GetSubRole() == ROLE_DEFECTIVE then
@@ -184,6 +194,24 @@ if SERVER then
 	end
 	
 	hook.Add("TTTBeginRound", "DefectiveBeginRound", function()
+		if GetConVar("ttt2_defective_disable_spawn_if_no_detective"):GetBool() and not AtLeastOneDetExists() then
+			--This round has no detectives! Quickly force all players of this role to be generic traitors.
+			for _, ply in pairs(player.GetAll()) do
+				if ply:GetSubRole() == ROLE_DEFECTIVE then
+					--print("DEF_DEBUG DefectiveBeginRound: FORCING PLAYER " .. ply:GetName() .. " TO BE A TRAITOR!")
+					ply:SetRole(ROLE_TRAITOR)
+					
+					--Also remove the DNA Scanner that they were given at the start of the round. Traitors shouldn't have this.
+					ply:StripWeapon('weapon_ttt_wtester')
+				end
+			end
+			
+			--Call this whenever a role change has occurred.
+			--Especially necessary here, as otherwise there's a full second in the beginning of the round where the now-traitors
+			--look like detectives, which could have been exploited by the innocent team.
+			SendFullStateUpdate()
+		end
+		
 		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
 		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
 			--Force all special detectives to be normal detectives, in case they have some special equipment or ability that could instantly be used to make them trustworthy.
