@@ -57,6 +57,15 @@ if SERVER then
 	--ttt2_defective_det_handling_mode enum
 	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2}
 	
+	--Shamelessly copy/pasted from TTT2/gamemodes/terrortown/gamemode/server/sv_weaponry.lua
+	-- Quick hack to limit hats to models that fit them well
+	local Hattables = {
+		"phoenix.mdl",
+		"arctic.mdl",
+		"Group01",
+		"monk.mdl"
+	}
+	
 	local function RevealOnlyRequiresDeadDefs()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
 		return (m == REVEAL_MODE.ALWAYS or m == REVEAL_MODE.ALL_DEFS_DEAD)
@@ -248,8 +257,41 @@ if SERVER then
 		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
 	end)
 	
+	--Shamelessly copy/pasted from TTT2/gamemodes/terrortown/gamemode/server/sv_weaponry.lua
+	local function CanWearHat(ply)
+		local path = string.Explode("/", ply:GetModel())
+		
+		if #path == 1 then
+			path = string.Explode("\\", path)
+		end
+		
+		return table.HasValue(Hattables, path[3])
+	end
+	
+	--Mostly shamelessly copy/pasted from TTT2/gamemodes/terrortown/gamemode/server/sv_weaponry.lua
+	local function GiveLoadoutSpecial(ply)
+		if not GetConVar("ttt_detective_hats"):GetBool() or not CanWearHat(ply)then
+			--No need to remove the hat here, as TTT2 server code already does this.
+			return
+		end
+		
+		local hat = ents.Create("ttt_hat_deerstalker")
+		if not IsValid(hat) then return end
+
+		hat:SetPos(ply:GetPos() + Vector(0, 0, 70))
+		hat:SetAngles(ply:GetAngles())
+		hat:SetParent(ply)
+
+		ply.hat = hat
+
+		hat:Spawn()
+	end
+	
 	function ROLE:GiveRoleLoadout(ply, isRoleChange)
 		--print("DEF_DEBUG GiveRoleLoadout: " .. ply:GetName() .. " is a Defective")
+		
+		--Give the defective special stuff that the Detective also has.
+		GiveLoadoutSpecial(ply)
 		
 		--Send the role to everyone (role is changed during SendFullStateUpdate())
 		--Sending this information here also handles cases where the def respawns, as without a SendFullStateUpdate() call their role could be revealed regardless of ConVar settings.
@@ -455,23 +497,26 @@ if SERVER then
 		--We also award credits to the det if the def killed a traitor.
 		if (attacker:GetBaseRole() == ROLE_DETECTIVE and not victim:IsInTeam(attacker)) or (attacker:GetSubRole() == ROLE_DEFECTIVE and victim:IsInTeam(attacker)) then
 			local amt = math.ceil(ConVarExists("ttt_det_credits_traitordead") and GetConVar("ttt_det_credits_traitordead"):GetInt() or 1)
-			local plys = player.GetAll()
 			
-			for i = 1, #plys do
-				local ply = plys[i]
+			if amt > 0 then
+				local plys = player.GetAll()
 				
-				--Give credits to the def regardless.
-				--But only give credits to the det if the attacker is a def (to avoid double dipping)
-				if ply:IsActive() and ply:IsShopper() and (ply:GetSubRole() == ROLE_DEFECTIVE or (attacker:GetSubRole() == ROLE_DEFECTIVE and ply:GetBaseRole() == ROLE_DETECTIVE)) then
-					ply:AddCredits(amt)
+				for i = 1, #plys do
+					local ply = plys[i]
+					
+					--Give credits to the def regardless.
+					--But only give credits to the det if the attacker is a def (to avoid double dipping)
+					if ply:IsActive() and ply:IsShopper() and (ply:GetSubRole() == ROLE_DEFECTIVE or (attacker:GetSubRole() == ROLE_DEFECTIVE and ply:GetBaseRole() == ROLE_DETECTIVE)) then
+						ply:AddCredits(amt)
+					end
 				end
-			end
-			
-			--Always inform defectives of the credits they have received.
-			LANG.Msg(GetRoleChatFilter(ROLE_DEFECTIVE, true), "credit_all", {num = amt})
-			if attacker:GetSubRole() == ROLE_DEFECTIVE then
-				--Only inform detectives of credits they receive from defectives (they will already be sent a popup if the attacker was a fellow detective).
-				LANG.Msg(GetRoleChatFilter(ROLE_DETECTIVE, true), "credit_all", {num = amt})
+				
+				--Always inform defectives of the credits they have received.
+				LANG.Msg(GetRoleChatFilter(ROLE_DEFECTIVE, true), "credit_all", {num = amt})
+				if attacker:GetSubRole() == ROLE_DEFECTIVE then
+					--Only inform detectives of credits they receive from defectives (they will already be sent a popup if the attacker was a fellow detective).
+					LANG.Msg(GetRoleChatFilter(ROLE_DETECTIVE, true), "credit_all", {num = amt})
+				end
 			end
 		end
 	end)
@@ -500,20 +545,20 @@ if SERVER then
 	local function GiveFoundCredits(ply, rag, isLongRange)
 		local corpseNick = CORPSE.GetPlayerNick(rag)
 		local credits = CORPSE.GetCredits(rag, 0)
-		
+
 		if not ply:IsActiveShopper() or ply:GetSubRoleData().preventFindCredits
 			or credits == 0 or isLongRange
 		then return end
-		
+
 		LANG.Msg(ply, "body_credits", {num = credits})
-		
+
 		ply:AddCredits(credits)
-		
+
 		CORPSE.SetCredits(rag, 0)
-		
+
 		ServerLog(ply:Nick() .. " took " .. credits .. " credits from the body of " .. corpseNick .. "\n")
-		
-		SCORE:HandleCreditFound(ply, corpseNick, credits)
+
+		events.Trigger(EVENT_CREDITFOUND, ply, rag, credits)
 	end
 	
 	hook.Add("TTTCanSearchCorpse", "DefectiveCanSearchCorpse", function(ply, corpse, isCovert, isLongRange)
@@ -556,7 +601,7 @@ if SERVER then
 			confirmed:ConfirmPlayer(true)
 			SendRoleListMessage(ROLE_DETECTIVE, TEAM_INNOCENT, {confirmed:EntIndex()})
 			--Update the scoreboard to show the def as a det.
-			SCORE:HandleBodyFound(finder, confirmed)
+			events.Trigger(EVENT_BODYFOUND, finder, corpse)
 			
 			--Prevent traditional player confirmation from occurring (which would reveal the def).
 			return false
