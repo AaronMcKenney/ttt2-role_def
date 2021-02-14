@@ -268,30 +268,48 @@ if SERVER then
 		return table.HasValue(Hattables, path[3])
 	end
 	
-	--Mostly shamelessly copy/pasted from TTT2/gamemodes/terrortown/gamemode/server/sv_weaponry.lua
-	local function GiveLoadoutSpecial(ply)
-		if not GetConVar("ttt_detective_hats"):GetBool() or not CanWearHat(ply)then
-			--No need to remove the hat here, as TTT2 server code already does this.
+	hook.Add("PlayerLoadout", "DefectivePlayerLoadout", function(ply, isRespawn)
+		--Mostly shamelessly copy/pasted from GiveLoadoutSpecial in:
+		--TTT2/gamemodes/terrortown/gamemode/server/sv_weaponry.lua
+		--Have to use "def_hat" and can't reuse "ply.hat" entities, as TTT2 server can take away ply.hat entities as soon as they are given.
+		--The code here appears to be mildly broken for the detective, as they only truly lose their hat if they change roles. Otherwise the hat will still exist (even if it isn't on their head).
+		--Not entirely sure why this is the case, but it can be replicated through the added "on_def" field.
+		
+		if not IsValid(ply) or ply:IsSpec() then
 			return
 		end
 		
-		local hat = ents.Create("ttt_hat_deerstalker")
-		if not IsValid(hat) then return end
+		if not ply:IsActive() or ply:GetSubRole() ~= ROLE_DEFECTIVE or not GetConVar("ttt_detective_hats"):GetBool() or not CanWearHat(ply) then
+			if IsValid(ply.def_hat) and ply.def_hat.on_def then
+				SafeRemoveEntity(ply.def_hat)
+				ply.def_hat = nil
+			end
+			
+			return
+		end
+		
+		--"and not isRespawn" is needed because for some reason detectives get new hats when they respawn, even though the hats they have from their past life still exists in the world. Very strange.
+		if IsValid(ply.def_hat) and ply.def_hat.on_def then
+			return
+		end
+		
+		local def_hat = ents.Create("ttt_hat_deerstalker")
+		if not IsValid(def_hat) then
+			return
+		end
 
-		hat:SetPos(ply:GetPos() + Vector(0, 0, 70))
-		hat:SetAngles(ply:GetAngles())
-		hat:SetParent(ply)
+		def_hat:SetPos(ply:GetPos() + Vector(0, 0, 70))
+		def_hat:SetAngles(ply:GetAngles())
+		def_hat:SetParent(ply)
+		def_hat.on_def = true
 
-		ply.hat = hat
+		ply.def_hat = def_hat
 
-		hat:Spawn()
-	end
+		def_hat:Spawn()
+	end)
 	
 	function ROLE:GiveRoleLoadout(ply, isRoleChange)
 		--print("DEF_DEBUG GiveRoleLoadout: " .. ply:GetName() .. " is a Defective")
-		
-		--Give the defective special stuff that the Detective also has.
-		GiveLoadoutSpecial(ply)
 		
 		--Send the role to everyone (role is changed during SendFullStateUpdate())
 		--Sending this information here also handles cases where the def respawns, as without a SendFullStateUpdate() call their role could be revealed regardless of ConVar settings.
@@ -432,6 +450,13 @@ if SERVER then
 		end
 	end)
 	
+	hook.Add("PlayerTraceAttack", "DefectiveTraceAttack", function(ply, dmginfo, dir, trace)
+		if IsValid(ply.def_hat) and trace.HitGroup == HITGROUP_HEAD then
+			ply.def_hat:Drop(dir)
+			ply.def_hat.on_def = false
+		end
+	end)
+	
 	hook.Add("EntityTakeDamage", "DefectiveTakeDamage", function(target, dmg_info)
 		local attacker = dmg_info:GetAttacker()
 		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(target) or not target:IsPlayer() or not IsValid(attacker) or not attacker:IsPlayer() then
@@ -461,6 +486,13 @@ if SERVER then
 		
 		if num_living_defs < num_living_traitors or num_living_dets < num_living_innos then
 			dmg_info:SetDamage(0)
+		end
+	end)
+	
+	hook.Add("DoPlayerDeath", "DefectivePlayerDeath", function(ply, attacker, dmginfo)
+		if IsValid(ply.def_hat) then
+			ply.def_hat:Drop()
+			ply.def_hat.on_def = false
 		end
 	end)
 	
