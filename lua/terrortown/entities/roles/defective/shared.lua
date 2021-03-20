@@ -66,6 +66,14 @@ if SERVER then
 		"monk.mdl"
 	}
 	
+	local function IsInSpecDM(ply)
+		if SpecDM and (ply.IsGhost and ply:IsGhost()) then
+			return true
+		end
+		
+		return false
+	end
+	
 	local function RevealOnlyRequiresDeadDefs()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
 		return (m == REVEAL_MODE.ALWAYS or m == REVEAL_MODE.ALL_DEFS_DEAD)
@@ -97,7 +105,7 @@ if SERVER then
 	
 	local function AtLeastOneDefLives()
 		for _, ply in pairs(player.GetAll()) do
-			if ply:IsTerror() and ply:Alive() and ply:GetSubRole() == ROLE_DEFECTIVE then
+			if ply:IsTerror() and ply:Alive() and ply:GetSubRole() == ROLE_DEFECTIVE and not IsInSpecDM(ply) then
 				return true
 			end
 		end
@@ -107,8 +115,7 @@ if SERVER then
 	
 	local function AtLeastOneDefOrDetLives()
 		for _, ply in pairs(player.GetAll()) do
-			if ply:IsTerror() and ply:Alive() and (ply:GetBaseRole() == ROLE_DETECTIVE or ply:GetSubRole() == ROLE_DEFECTIVE) then
-				
+			if ply:IsTerror() and ply:Alive() and IsDefOrDet(ply) and not IsInSpecDM(ply) then
 				return true
 			end
 		end
@@ -476,7 +483,7 @@ if SERVER then
 		local num_living_traitors = 0
 		local num_living_innos = 0
 		for _, ply in pairs(player.GetAll()) do
-			if ply:IsTerror() and ply:Alive() then
+			if ply:IsTerror() and ply:Alive() and not IsInSpecDM(ply) then
 				num_living_defs = num_living_defs + (ply:GetSubRole() == ROLE_DEFECTIVE and 1 or 0)
 				num_living_dets = num_living_dets + (ply:GetBaseRole() == ROLE_DETECTIVE and 1 or 0)
 				num_living_traitors = num_living_traitors + (ply:HasTeam(TEAM_TRAITOR) and 1 or 0)
@@ -564,7 +571,7 @@ if SERVER then
 		--The code suggests that it is possible for players of the same role to have different shops.
 		local dead_defs_prevent_orders = (GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt() ~= REVEAL_MODE.ALWAYS)
 		for _, ply_i in pairs(player.GetAll()) do
-			if ply_i:IsTerror() and (dead_defs_prevent_orders or ply_i:Alive()) and ply_i:GetSubRole() == ROLE_DEFECTIVE and not EquipmentIsBuyable(equip_table, ply_i) then
+			if ply_i:IsTerror() and (dead_defs_prevent_orders or (ply_i:Alive() and not IsInSpecDM(ply_i))) and ply_i:GetSubRole() == ROLE_DEFECTIVE and not EquipmentIsBuyable(equip_table, ply_i) then
 				--Prevent dets from buying items/weapons that defs can't buy.
 				--This allows the admin to prevent dets from buying something like a portable tester or similar item which can instantly prove their innocence and reveal the def.
 				LANG.Msg(ply, "prevent_order_" .. DEFECTIVE.name, nil, MSG_CHAT_WARN)
