@@ -52,10 +52,14 @@ end
 
 if SERVER then
 	--CONSTANTS
+	--Used to identify if we're currently setting up role logic in the beginning of the round
+	local def_doing_setup_logic = false
 	--ttt2_defective_corpse_reveal_mode enum
 	local REVEAL_MODE = {NEVER = 0, ALL_DEAD = 1, ALL_DEFS_DEAD = 2, ALWAYS = 3}
 	--ttt2_defective_det_handling_mode enum
 	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2}
+	--Used in JamDetective to determine what role the player is being forced to
+	local JAM_DET_MODE = {BASE_DET = 0, INNO = 1}
 	
 	--Shamelessly copy/pasted from TTT2/gamemodes/terrortown/gamemode/server/sv_weaponry.lua
 	-- Quick hack to limit hats to models that fit them well
@@ -179,20 +183,33 @@ if SERVER then
 		end
 	end
 	
-	local function JamDetective(ply, base_role, sub_role)
-		if ply:IsTerror() and ply:Alive() and base_role == ROLE_DETECTIVE and sub_role ~= ROLE_DETECTIVE then
-			local old_sub_role = ply:GetSubRole()
-			
-			--This timer is a hack to give time for the player to finish setup for their current role before we change it to their new role. It won't work if the current role takes a lot of time to setup.
-			--Specifically prevents situations where a sniffer is given their lens, but then changes to a detective before the lens can be properly removed.
-			timer.Simple(0.1, function()
-				ply:SetRole(ROLE_DETECTIVE)
-				--Call this function whenever a role change occurs during an active round.
-				SendFullStateUpdate()
+	local function JamDetective(ply, base_role, sub_role, jam_det_mode)
+		if ply:IsTerror() and ply:Alive() and base_role == ROLE_DETECTIVE and (sub_role ~= ROLE_DETECTIVE or jam_det_mode == JAM_DET_MODE.INNO) then
+			if jam_det_mode == JAM_DET_MODE.BASE_DET then
+				--print("DEF_DEBUG JamDetective: FORCING PLAYER " .. ply:GetName() .. " TO BE A DETECTIVE!")
 				
 				--Keep track of special det's role, in case the server is configured or reconfigured to potentially give back the role (JAM_TEMP)
-				ply.det_role_masked_by_def = old_sub_role
-			end)
+				ply.det_role_masked_by_def = ply:GetSubRole()
+				ply:SetRole(ROLE_DETECTIVE)
+				
+				if def_doing_setup_logic == true then
+					timer.Simple(0.1, function()
+						--Force the detective to have the correct number of credits, since ULX doesn't seem to care about that.
+						ply:SetCredits(GetConVar("ttt_det_credits_starting"):GetInt())
+					end)
+				end
+			else --JAM_DET_MODE.INNO
+				--print("DEF_DEBUG JamDetective: FORCING PLAYER " .. ply:GetName() .. " TO BE AN INNOCENT!")
+				ply:SetRole(ROLE_INNOCENT)
+				
+				if def_doing_setup_logic == true then
+					timer.Simple(0.1, function()
+						ply:SetCredits(0)
+					end)
+				end
+			end
+			--Call this function whenever a role change occurs during an active round.
+			SendFullStateUpdate()
 		end
 	end
 	
@@ -209,43 +226,100 @@ if SERVER then
 		end
 	end
 	
-	hook.Add("TTTBeginRound", "DefectiveBeginRound", function()
-		if GetConVar("ttt2_defective_disable_spawn_if_no_detective"):GetBool() and not AtLeastOneDetExists() then
-			--This round has no detectives! Quickly force all players of this role to be generic traitors.
+	local function GetNumDetectiveDemotions()
+		local num_demotions = 0
+		local demote_pct = GetConVar("ttt2_defective_demote_detective_pct"):GetFloat()
+		
+		local r = math.random()
+		--print("DEF_DEBUG GetNumDetectiveDemotions: Roll of " .. r .. " vs. demote_pct of " .. demote_pct)
+		if r <= demote_pct then
 			for _, ply in pairs(player.GetAll()) do
 				if ply:GetSubRole() == ROLE_DEFECTIVE then
-					--print("DEF_DEBUG DefectiveBeginRound: FORCING PLAYER " .. ply:GetName() .. " TO BE A TRAITOR!")
-					ply:SetRole(ROLE_TRAITOR)
-					
-					--Also remove the DNA Scanner that they were given at the start of the round. Traitors shouldn't have this.
-					ply:StripWeapon('weapon_ttt_wtester')
+					num_demotions = num_demotions + 1
 				end
 			end
-			
+		end
+		
+		return num_demotions
+	end
+	
+	local function DisableAllDefectives()
+		local def_was_disabled = false
+		for _, ply in pairs(player.GetAll()) do
+			if ply:GetSubRole() == ROLE_DEFECTIVE then
+				--print("DEF_DEBUG DisableAllDefectives: FORCING PLAYER " .. ply:GetName() .. " TO BE A TRAITOR!")
+				ply:SetRole(ROLE_TRAITOR)
+				
+				timer.Simple(0.1, function()
+					--Force the traitor to have the correct number of credits, since ULX doesn't seem to care about that.
+					ply:SetCredits(GetConVar("ttt_credits_starting"):GetInt())
+				end)
+				
+				--Also remove the DNA Scanner that they were given at the start of the round. Traitors shouldn't have this.
+				ply:StripWeapon('weapon_ttt_wtester')
+				
+				def_was_disabled = true
+			end
+		end
+		
+		if def_was_disabled then
 			--Call this whenever a role change has occurred.
 			--Especially necessary here, as otherwise there's a full second in the beginning of the round where the now-traitors
 			--look like detectives, which could have been exploited by the innocent team.
 			SendFullStateUpdate()
 		end
+	end
+	
+	local function ResetDefectivePlayerDataForServer()
+		def_doing_setup_logic = false
+	end
+	hook.Add("TTTPrepareRound", "DefectivePrepareRoundForServer", ResetDefectivePlayerDataForServer())
+	hook.Add("TTTEndRound", "DefectivePrepareEndForServer", ResetDefectivePlayerDataForServer())
+	
+	hook.Add("TTTBeginRound", "DefectiveBeginRoundForServer", function()
+		def_doing_setup_logic = true
 		
+		if GetConVar("ttt2_defective_disable_spawn_if_no_detective"):GetBool() and not AtLeastOneDetExists() then
+			--This round has no detectives! Quickly force all players of this role to be generic traitors.
+			DisableAllDefectives()
+			
+			--Now that there are no defectives, we can leave this hook without consequence.
+			def_doing_setup_logic = false
+			return
+		end
+		
+		local num_demotions = GetNumDetectiveDemotions()
 		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
-		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
+		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) or num_demotions > 0 then
 			--Force all special detectives to be normal detectives, in case they have some special equipment or ability that could instantly be used to make them trustworthy.
-			for _, ply in pairs(player.GetAll()) do
-				JamDetective(ply, ply:GetBaseRole(), ply:GetSubRole())
+			--Also force detectives to be innocent, if demotions are required
+			--Player table is shuffled to randomize who gets demoted.
+			for _, ply in pairs(table.Shuffle(player.GetAll())) do
+				if num_demotions > 0 and ply:GetBaseRole() == ROLE_DETECTIVE then
+					JamDetective(ply, ply:GetBaseRole(), ply:GetSubRole(), JAM_DET_MODE.INNO)
+					num_demotions = num_demotions - 1
+				else
+					JamDetective(ply, ply:GetBaseRole(), ply:GetSubRole(), JAM_DET_MODE.BASE_DET)
+				end
 			end
 		end
 		
 		--Only send popup here, as opposed to also sending it on TTT2UpdateSubrole, as doing so could reveal the newly created defective.
-		if GetConVar("ttt2_defective_inform_everyone"):GetBool() and AtLeastOneDefExists() then
+		if GetConVar("ttt2_defective_inform_everyone"):GetBool() and AtLeastOneDefExists() and AtLeastOneDetExists() then
 			net.Start("TTT2DefectiveInformEveryone")
 			net.Broadcast()
 		end
 		
 		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
+		def_doing_setup_logic = false
 	end)
 	
 	hook.Add("TTT2UpdateSubrole", "DefectiveUpdateSubrole", function(self, oldSubrole, subrole)
+		--Don't bother messing with role logic in the beginning of the round here, as that's already happening in TTTBeginRound hook.
+		if GetRoundState() ~= ROUND_ACTIVE or def_doing_setup_logic then
+			return
+		end
+		
 		local base_role = roles.GetByIndex(subrole):GetBaseRole()
 		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
 		
@@ -258,7 +332,11 @@ if SERVER then
 		--We do not immediately jam all special dets if a def shows up in the middle of the round, as that would immediately give away that they are a def.
 		--Only jam special dets that show up when a def is currently in play.
 		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
-			JamDetective(self, base_role, subrole)
+			--This timer is a hack to give time for the player to finish setup for their current role before we change it to their new role. It won't work if the current role takes a lot of time to setup.
+			--Specifically prevents situations where a sniffer is given their lens, but then changes to a detective before the lens can be properly removed.
+			timer.Simple(0.1, function()
+				JamDetective(self, base_role, subrole, JAM_DET_MODE.BASE_DET)
+			end)
 		end
 		
 		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()

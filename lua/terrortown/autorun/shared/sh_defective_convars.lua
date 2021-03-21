@@ -9,11 +9,12 @@ CreateConVar("ttt2_defective_can_see_defectives", "1", {FCVAR_ARCHIVE, FCVAR_NOT
 CreateConVar("ttt2_defective_corpse_reveal_mode", "0", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_special_det_handling_mode", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 CreateConVar("ttt2_defective_disable_spawn_if_no_detective", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
+CreateConVar("ttt2_defective_demote_detective_pct", "0.0", {FCVAR_ARCHIVE, FCVAR_NOTFIY})
 
 hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 	tbl[ROLE_DEFECTIVE] = tbl[ROLE_DEFECTIVE] or {}
 	
-	--# Send a popup message if there's a defective at the start of the round?
+	--# Send a popup message if there's a defective and detective at the start of the round?
 	--  ttt2_defective_inform_everyone [0/1] (default: 1)
 	table.insert(tbl[ROLE_DEFECTIVE], {
 		cvar = "ttt2_defective_inform_everyone",
@@ -115,6 +116,19 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 		checkbox = true,
 		desc = "ttt2_defective_disable_spawn_if_no_detective (Def: 1)"
 	})
+	
+	--# The chance that at the beginning of the round a detective will be "demoted" into an innocent for every defective.
+	--  Note: ttt2_defective_inform_everyone won't activate if all detectives have been demoted.
+	--  Note: ttt2_defective_disable_spawn_if_no_detective takes priority over this ConVar.
+	--  ttt2_defective_demote_detective_pct [0.0..n.m] (default: 0.0)
+	table.insert(tbl[ROLE_DEFECTIVE], {
+		cvar = "ttt2_defective_demote_detective_pct",
+		slider = true,
+		min = 0.0,
+		max = 1.0,
+		decimal = 2,
+		desc = "ttt2_defective_demote_detective_pct (Def: 0.0)"
+	})
 end)
 
 hook.Add("TTT2SyncGlobals", "AddDefectiveGlobals", function()
@@ -128,6 +142,7 @@ hook.Add("TTT2SyncGlobals", "AddDefectiveGlobals", function()
 	SetGlobalInt("ttt2_defective_corpse_reveal_mode", GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt())
 	SetGlobalInt("ttt2_defective_special_det_handling_mode", GetConVar("ttt2_defective_special_det_handling_mode"):GetInt())
 	SetGlobalBool("ttt2_defective_disable_spawn_if_no_detective", GetConVar("ttt2_defective_disable_spawn_if_no_detective"):GetBool())
+	SetGlobalFloat("ttt2_defective_demote_detective_pct", GetConVar("ttt2_defective_demote_detective_pct"):GetFloat())
 end)
 
 cvars.AddChangeCallback("ttt2_defective_inform_everyone", function(name, old, new)
@@ -159,4 +174,7 @@ cvars.AddChangeCallback("ttt2_defective_special_det_handling_mode", function(nam
 end)
 cvars.AddChangeCallback("ttt2_defective_disable_spawn_if_no_detective", function(name, old, new)
 	SetGlobalBool("ttt2_defective_disable_spawn_if_no_detective", tobool(tonumber(new)))
+end)
+cvars.AddChangeCallback("ttt2_defective_demote_detective_pct", function(name, old, new)
+	SetGlobalInt("ttt2_defective_demote_detective_pct", tonumber(new))
 end)

@@ -36,7 +36,7 @@ Convars are variables that are introduced to allow server owners to customize th
   ttt_defective_min_players: [0..n] (default: 10)[/code]
  
 [h1]Rolespecific Convars:[/h1]
-[code]# Send a popup message if there's a defective at the start of the round?
+[code]# Send a popup message if there's a defective and detective at the start of the round?
   ttt2_defective_inform_everyone [0/1] (default: 1)
 # Prevent the detective from purchasing items that aren't in the defective's shop?
   # You can create your own custom shop for the defective via the "shopeditor" command.
@@ -65,7 +65,11 @@ Convars are variables that are introduced to allow server owners to customize th
   # 1: Force all special dets to be normal dets
   # 2: Force all special dets to be normal dets, but give them back their roles if: all defs are dead, defs can be revealed, and the former special det didn't undergo a role change (ex. did not become infected)
 # If there are no detectives at the beginning of the round, should any player with this role be forced into a generic Traitor role?
-  ttt2_defective_disable_spawn_if_no_detective [0/1] (default: 1)[/code]
+  ttt2_defective_disable_spawn_if_no_detective [0/1] (default: 1)
+# The chance that at the beginning of the round a detective will be "demoted" into an innocent for every defective.
+  Note: ttt2_defective_inform_everyone won't activate if all detectives have been demoted.
+  Note: ttt2_defective_disable_spawn_if_no_detective takes priority over this ConVar.
+  ttt2_defective_demote_detective_pct [0.0..n.m] (default: 0.0)[/code]
  
 --
 [h1]Credits:[/h1]
