@@ -433,7 +433,7 @@ if SERVER then
 					continue
 				end
 				
-				if not ply:HasTeam(TEAM_TRAITOR) or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
+				if ply:GetTeam() ~= TEAM_TRAITOR or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
 					--Make the defective look like a detective to all non-traitors.
 					tbl[ply_i] = {ROLE_DETECTIVE, TEAM_INNOCENT}
 				else
@@ -443,13 +443,13 @@ if SERVER then
 			end
 			
 			--Handle how defectives see traitors
-			if ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:GetSubRole() ~= ROLE_DEFECTIVE and ply_i:HasTeam(TEAM_TRAITOR) then
+			if ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:GetSubRole() ~= ROLE_DEFECTIVE and ply_i:GetTeam() == TEAM_TRAITOR then
 				if GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
 					--Allow for the defective to see their fellow traitors.
 					tbl[ply_i] = {ply_i:GetSubRole(), ply_i:GetTeam()}
 				else
-					--Force all traitors to look like innocents to the defective
-					tbl[ply_i] = {ROLE_INNOCENT, TEAM_INNOCENT}
+					--Force all traitors to look like none role to the defective
+					tbl[ply_i] = {ROLE_NONE, TEAM_NONE}
 				end
 			end
 			
@@ -467,7 +467,7 @@ if SERVER then
 	hook.Add("TTT2ModifyRadarRole", "DefectiveModifyRadarRole", function(ply, target)
 		--Handle how everyone sees a defective
 		if ply:GetSubRole() ~= ROLE_DEFECTIVE and target:GetSubRole() == ROLE_DEFECTIVE then
-			if not ply:HasTeam(TEAM_TRAITOR) or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
+			if ply:GetTeam() ~= TEAM_TRAITOR or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
 				--Make the defective look like a detective to all non-traitors.
 				return ROLE_DETECTIVE, TEAM_INNOCENT
 			else
@@ -477,13 +477,13 @@ if SERVER then
 		end
 		
 		--Handle how defectives see traitors
-		if ply:GetSubRole() == ROLE_DEFECTIVE and target:GetSubRole() ~= ROLE_DEFECTIVE and target:HasTeam(TEAM_TRAITOR) then
+		if ply:GetSubRole() == ROLE_DEFECTIVE and target:GetSubRole() ~= ROLE_DEFECTIVE and target:GetTeam() == TEAM_TRAITOR then
 			if GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
 				--Allow for the defective to see their fellow traitors.
 				return target:GetSubRole(), target:GetTeam()
 			else
-				--Force all traitors to look like innocents to the defective
-				return ROLE_INNOCENT, TEAM_INNOCENT
+				--Force all traitors to look like none role to the defective
+				return ROLE_NONE, TEAM_NONE
 			end
 		end
 		
@@ -499,7 +499,7 @@ if SERVER then
 	
 	hook.Add("TTT2AvoidTeamChat", "DefectiveAvoidTeamChat", function(sender, tm, msg)
 		--Only jam traitor team chat
-		if not tm == TEAM_TRAITOR or not IsValid(sender) or not sender:HasTeam(TEAM_TRAITOR) then
+		if not tm == TEAM_TRAITOR or not IsValid(sender) or sender:GetTeam() ~= TEAM_TRAITOR then
 			return
 		end
 		
@@ -518,7 +518,7 @@ if SERVER then
 	
 	hook.Add("TTT2CanUseVoiceChat", "DefectiveServerCanUseVoiceChat", function(speaker, isTeamVoice)
 		--Only jam traitor team voice
-		if not isTeamVoice or not IsValid(speaker) or not speaker:HasTeam(TEAM_TRAITOR) then
+		if not isTeamVoice or not IsValid(speaker) or speaker:GetTeam() ~= TEAM_TRAITOR then
 			return
 		end
 		
@@ -564,8 +564,8 @@ if SERVER then
 			if ply:IsTerror() and ply:Alive() and not IsInSpecDM(ply) then
 				num_living_defs = num_living_defs + (ply:GetSubRole() == ROLE_DEFECTIVE and 1 or 0)
 				num_living_dets = num_living_dets + (ply:GetBaseRole() == ROLE_DETECTIVE and 1 or 0)
-				num_living_traitors = num_living_traitors + (ply:HasTeam(TEAM_TRAITOR) and 1 or 0)
-				num_living_innos = num_living_innos + (ply:HasTeam(TEAM_INNOCENT) and 1 or 0)
+				num_living_traitors = num_living_traitors + (ply:GetTeam() == TEAM_TRAITOR and 1 or 0)
+				num_living_innos = num_living_innos + (ply:GetTeam() == TEAM_INNOCENT and 1 or 0)
 			end
 		end
 		
@@ -791,7 +791,7 @@ if CLIENT then
 		--This is mostly copied from the server-side hook. Client also needs a hook here for VGUI stuff.
 		
 		--Only jam traitor team voice
-		if not isTeamVoice or not IsValid(speaker) or not speaker:HasTeam(TEAM_TRAITOR) then
+		if not isTeamVoice or not IsValid(speaker) or speaker:GetTeam() ~= TEAM_TRAITOR then
 			return
 		end
 		
