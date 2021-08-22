@@ -187,6 +187,7 @@ if SERVER then
 		if ply:IsTerror() and ply:Alive() and base_role == ROLE_DETECTIVE and (sub_role ~= ROLE_DETECTIVE or jam_det_mode == JAM_DET_MODE.INNO) then
 			if jam_det_mode == JAM_DET_MODE.BASE_DET then
 				--print("DEF_DEBUG JamDetective: FORCING PLAYER " .. ply:GetName() .. " TO BE A DETECTIVE!")
+				events.Trigger(EVENT_DEF_JAM_DET, ply)
 				
 				--Keep track of special det's role, in case the server is configured or reconfigured to potentially give back the role (JAM_TEMP)
 				ply.det_role_masked_by_def = ply:GetSubRole()
@@ -200,6 +201,7 @@ if SERVER then
 				end
 			else --JAM_DET_MODE.INNO
 				--print("DEF_DEBUG JamDetective: FORCING PLAYER " .. ply:GetName() .. " TO BE AN INNOCENT!")
+				events.Trigger(EVENT_DEF_DEMOTE_DET, ply)
 				ply:SetRole(ROLE_INNOCENT)
 				
 				if def_doing_setup_logic == true then
@@ -248,6 +250,7 @@ if SERVER then
 		for _, ply in pairs(player.GetAll()) do
 			if ply:GetSubRole() == ROLE_DEFECTIVE then
 				--print("DEF_DEBUG DisableAllDefectives: FORCING PLAYER " .. ply:GetName() .. " TO BE A TRAITOR!")
+				events.Trigger(EVENT_DEF_DISABLED, ply)
 				ply:SetRole(ROLE_TRAITOR)
 				
 				timer.Simple(0.1, function()
@@ -591,6 +594,7 @@ if SERVER then
 			--If all defs are dead, give any remaining special dets their roles back.
 			for _, ply in pairs(player.GetAll()) do
 				if ply.det_role_masked_by_def then
+					events.Trigger(EVENT_DEF_UNDO_JAM, ply, ply.det_role_masked_by_def)
 					ply:SetRole(ply.det_role_masked_by_def)
 					--Call this function whenever a role change occurs during an active round.
 					SendFullStateUpdate()
