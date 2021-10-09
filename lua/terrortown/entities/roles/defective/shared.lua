@@ -810,3 +810,13 @@ if CLIENT then
 		end
 	end)
 end
+
+----------
+--SHARED--
+----------
+
+hook.Add("TTT2GraverobberPreventSelection", "DefectiveGraverobberPreventSelection", function(ply)
+	if ply:GetSubRole() == ROLE_DEFECTIVE then
+		return true
+	end
+end)
