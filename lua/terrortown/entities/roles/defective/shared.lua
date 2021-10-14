@@ -12,20 +12,30 @@ function ROLE:PreInitialize()
 	self.color = Color(58, 27, 169, 255)
 	
 	self.abbr = "def"
-	self.scoreKillsMultiplier = 2
-	self.scoreTeamKillsMultiplier = -1
+	
+	self.defaultTeam = TEAM_TRAITOR
+	--Defective uses the Detective shop by default.
+	self.defaultEquipment = SPECIAL_EQUIPMENT
+	
+	--The defective may pick up any credits they find off of dead bodies (especially their fellow traitors)
+	self.preventFindCredits = false
+	
+	--Most of the scoring is taken from the Traitor
+	self.score.surviveBonusMultiplier = 0.5
+	self.score.timelimitMultiplier = -0.5
+	self.score.killsMultiplier = 2
+	self.score.bodyFoundMuliplier = 0
+	--teamKillsMultiplier is much less than the usual "-16", as the Defective could make a play here using their teammate as a sacrifice.
+	--Also Defectives get credits when players from their own team dies, so a sort of "blood for gold" situation can arise here.
+	self.score.teamKillsMultiplier = -1
+	
 	self.fallbackTable = {}
 	self.unknownTeam = false --Enables traitor chat (among other things).
 	
-	--The defective may pick up any credits they find off of dead bodies (especially their fellow traitors)
-	--However, they already gain credits in the same way as the detective, so it would be double-dipping to give them credits in the same way as the traitor.
-	--This does in fact provide an incentive to the defective to kill their fellow traitors.
-	self.preventFindCredits = false
-	self.preventKillCredits = not GetConVar("ttt2_defective_gain_traitor_credits"):GetBool()
-	self.preventTraitorAloneCredits = not GetConVar("ttt2_defective_gain_traitor_credits"):GetBool()
-	
-	self.defaultTeam = TEAM_TRAITOR
-	self.defaultEquipment = SPECIAL_EQUIPMENT
+	--This role is visible to all. However, there are many hooks to disguise the Defective as a Detective.
+	self.isPublicRole = true
+	--This role has the abilities of a Detective. Also gives the Defective a hat on some player models
+	self.isPolicingRole = true
 	
 	-- conVarData
 	self.conVarData = {
@@ -36,10 +46,14 @@ function ROLE:PreInitialize()
 		minKarma = 600,
 		traitorButton = 1, --can use traitor buttons
 		
-		--Detective defaults replicated here
+		--Detective has 1 credit by default. Replicated here.
 		credits = 1,
-		creditsTraitorKill = 0,
-		creditsTraitorDead = 1,
+		--By default, Defective gets credits in the same manner as their fellow traitors.
+		--Note: This is not the same as how the Detective gets credits, as that requires creatively misinterpreting creditsAwardDeadEnable to apply as if the Defective was on TEAM_INNOCENT.
+		--This should be fine as creditsAwardDeadEnable counts for both the Def and Det for all 3rd party roles, and generally the Def will have more credits than the Det (thus they can more easily mimic them).
+		--The only downside is if Traitors drop left and right before any Innocents, in which case the Det will have more credits. But that should be fine I think, as the Def could lie about what they spent.
+		creditsAwardDeadEnable = 1,
+		creditsAwardKillEnable = 1,
 		
 		togglable = true,
 		shopFallback = SHOP_FALLBACK_DETECTIVE
@@ -60,15 +74,6 @@ if SERVER then
 	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2}
 	--Used in JamDetective to determine what role the player is being forced to
 	local JAM_DET_MODE = {BASE_DET = 0, INNO = 1}
-	
-	--Shamelessly copy/pasted from TTT2/gamemodes/terrortown/gamemode/server/sv_weaponry.lua
-	-- Quick hack to limit hats to models that fit them well
-	local Hattables = {
-		"phoenix.mdl",
-		"arctic.mdl",
-		"Group01",
-		"monk.mdl"
-	}
 	
 	local function IsInSpecDM(ply)
 		if SpecDM and (ply.IsGhost and ply:IsGhost()) then
@@ -142,44 +147,6 @@ if SERVER then
 			return false
 		else
 			return true
-		end
-	end
-	
-	local function AllowDetsToInspect()
-		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
-		
-		if GetConVar("ttt2_inspect_detective_only"):GetBool() and not CanALivingDetBeRevealed() then
-			--Prevent dets from inspecting if doing so could be used to reveal the defective.
-			return false
-		end
-		
-		return true
-	end
-	
-	local function AllowDetsToConfirm()
-		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
-		
-		if GetConVar("ttt2_confirm_detective_only"):GetBool() and not CanALivingDetBeRevealed() then
-			--Prevent dets from confirming if doing so could be used to reveal the defective.
-			return false
-		end
-		
-		return true
-	end
-	
-	local function SendDefectiveInspectionNotice(ply)
-		if RevealOnlyRequiresDeadDefs() then
-			LANG.Msg(ply, "prevent_inspection_live_" .. DEFECTIVE.name, nil, MSG_MSTACK_WARN)
-		else
-			LANG.Msg(ply, "prevent_inspection_exist_" .. DEFECTIVE.name, nil, MSG_MSTACK_WARN)
-		end
-	end
-	
-	local function SendDefectiveConfirmationNotice(ply)
-		if RevealOnlyRequiresDeadDefs() then
-			LANG.Msg(ply, "prevent_confirmation_live_" .. DEFECTIVE.name, nil, MSG_MSTACK_WARN)
-		else
-			LANG.Msg(ply, "prevent_confirmation_exist_" .. DEFECTIVE.name, nil, MSG_MSTACK_WARN)
 		end
 	end
 	
@@ -345,57 +312,6 @@ if SERVER then
 		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
 	end)
 	
-	--Shamelessly copy/pasted from TTT2/gamemodes/terrortown/gamemode/server/sv_weaponry.lua
-	local function CanWearHat(ply)
-		local path = string.Explode("/", ply:GetModel())
-		
-		if #path == 1 then
-			path = string.Explode("\\", path)
-		end
-		
-		return table.HasValue(Hattables, path[3])
-	end
-	
-	hook.Add("PlayerLoadout", "DefectivePlayerLoadout", function(ply, isRespawn)
-		--Mostly shamelessly copy/pasted from GiveLoadoutSpecial in:
-		--TTT2/gamemodes/terrortown/gamemode/server/sv_weaponry.lua
-		--Have to use "def_hat" and can't reuse "ply.hat" entities, as TTT2 server can take away ply.hat entities as soon as they are given.
-		--The code here appears to be mildly broken for the detective, as they only truly lose their hat if they change roles. Otherwise the hat will still exist (even if it isn't on their head).
-		--Not entirely sure why this is the case, but it can be replicated through the added "on_def" field.
-		
-		if not IsValid(ply) or ply:IsSpec() then
-			return
-		end
-		
-		if not ply:IsActive() or ply:GetSubRole() ~= ROLE_DEFECTIVE or not GetConVar("ttt_detective_hats"):GetBool() or not CanWearHat(ply) then
-			if IsValid(ply.def_hat) and ply.def_hat.on_def then
-				SafeRemoveEntity(ply.def_hat)
-				ply.def_hat = nil
-			end
-			
-			return
-		end
-		
-		--"and not isRespawn" is needed because for some reason detectives get new hats when they respawn, even though the hats they have from their past life still exists in the world. Very strange.
-		if IsValid(ply.def_hat) and ply.def_hat.on_def then
-			return
-		end
-		
-		local def_hat = ents.Create("ttt_hat_deerstalker")
-		if not IsValid(def_hat) then
-			return
-		end
-
-		def_hat:SetPos(ply:GetPos() + Vector(0, 0, 70))
-		def_hat:SetAngles(ply:GetAngles())
-		def_hat:SetParent(ply)
-		def_hat.on_def = true
-
-		ply.def_hat = def_hat
-
-		def_hat:Spawn()
-	end)
-	
 	function ROLE:GiveRoleLoadout(ply, isRoleChange)
 		--print("DEF_DEBUG GiveRoleLoadout: " .. ply:GetName() .. " is a Defective")
 		
@@ -407,13 +323,6 @@ if SERVER then
 		--While GiveEquipmentItem() would be the better function to use here, it actually fails to give the defective the DNA scanner. Currently in the TTT2 codebase, Give() is used for the detective, so it should be fine here for now.
 		--Also, unlike other roles, it appears that the normal detective does not lose their equipment item should they change roles or die.
 		ply:Give("weapon_ttt_wtester")
-		
-		--Need a timer (hack) here because the starting credits can be overwritten by ULX and other things.
-		--See function "ulx.force"
-		timer.Simple(0.1, function()
-			--Give the defective the same number of credits as the role their disguised as.
-			ply:SetCredits(GetConVar("ttt_det_credits_starting"):GetInt())
-		end)
 	end
 	
 	hook.Add("TTT2SpecialRoleSyncing", "DefectiveSpecialRoleSyncing", function (ply, tbl)
@@ -538,13 +447,6 @@ if SERVER then
 		end
 	end)
 	
-	hook.Add("PlayerTraceAttack", "DefectiveTraceAttack", function(ply, dmginfo, dir, trace)
-		if IsValid(ply.def_hat) and trace.HitGroup == HITGROUP_HEAD then
-			ply.def_hat:Drop(dir)
-			ply.def_hat.on_def = false
-		end
-	end)
-	
 	hook.Add("EntityTakeDamage", "DefectiveTakeDamage", function(target, dmg_info)
 		local attacker = dmg_info:GetAttacker()
 		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(target) or not target:IsPlayer() or not IsValid(attacker) or not attacker:IsPlayer() then
@@ -577,13 +479,6 @@ if SERVER then
 		end
 	end)
 	
-	hook.Add("DoPlayerDeath", "DefectivePlayerDeath", function(ply, attacker, dmginfo)
-		if IsValid(ply.def_hat) then
-			ply.def_hat:Drop()
-			ply.def_hat.on_def = false
-		end
-	end)
-	
 	hook.Add("TTT2PostPlayerDeath", "DefectivePostPlayerDeath", function (victim, inflictor, attacker)
 		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(victim) or not victim:IsPlayer() then
 			return
@@ -608,40 +503,6 @@ if SERVER then
 		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
 	end)
 	
-	hook.Add("TTT2CheckCreditAward", "DefectiveCreditAward", function(victim, attacker)
-		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(victim) or not IsValid(attacker) or not attacker:IsPlayer() or not attacker:IsActive()then
-			return
-		end
-		
-		--This is pretty much copy/pasted from how Detective gets credits in CheckCreditAward()
-		--Except here we award credits to the defective if either a det or a def killed a traitor.
-		--We also award credits to the det if the def killed a traitor.
-		if (attacker:GetBaseRole() == ROLE_DETECTIVE and not victim:IsInTeam(attacker)) or (attacker:GetSubRole() == ROLE_DEFECTIVE and victim:IsInTeam(attacker)) then
-			local amt = math.ceil(ConVarExists("ttt_det_credits_traitordead") and GetConVar("ttt_det_credits_traitordead"):GetInt() or 1)
-			
-			if amt > 0 then
-				local plys = player.GetAll()
-				
-				for i = 1, #plys do
-					local ply = plys[i]
-					
-					--Give credits to the def regardless.
-					--But only give credits to the det if the attacker is a def (to avoid double dipping)
-					if ply:IsActive() and ply:IsShopper() and (ply:GetSubRole() == ROLE_DEFECTIVE or (attacker:GetSubRole() == ROLE_DEFECTIVE and ply:GetBaseRole() == ROLE_DETECTIVE)) then
-						ply:AddCredits(amt)
-					end
-				end
-				
-				--Always inform defectives of the credits they have received.
-				LANG.Msg(GetRoleChatFilter(ROLE_DEFECTIVE, true), "credit_all", {num = amt})
-				if attacker:GetSubRole() == ROLE_DEFECTIVE then
-					--Only inform detectives of credits they receive from defectives (they will already be sent a popup if the attacker was a fellow detective).
-					LANG.Msg(GetRoleChatFilter(ROLE_DETECTIVE, true), "credit_all", {num = amt})
-				end
-			end
-		end
-	end)
-	
 	hook.Add("TTT2CanOrderEquipment", "DefectiveCanOrderEquipment", function(ply, cls, is_item, credits)
 		if not GetConVar("ttt2_defective_shop_order_prevention"):GetBool() or GetRoundState() ~= ROUND_ACTIVE or ply:GetBaseRole() ~= ROLE_DETECTIVE or CanALivingDetBeRevealed() then
 			return
@@ -662,26 +523,6 @@ if SERVER then
 		end
 	end)
 	
-	--Copied directly from TTT2/gamemodes/terrortown/gamemode/server/sv_corpse.lua
-	local function GiveFoundCredits(ply, rag, isLongRange)
-		local corpseNick = CORPSE.GetPlayerNick(rag)
-		local credits = CORPSE.GetCredits(rag, 0)
-
-		if not ply:IsActiveShopper() or ply:GetSubRoleData().preventFindCredits
-			or credits == 0 or isLongRange
-		then return end
-
-		LANG.Msg(ply, "body_credits", {num = credits})
-
-		ply:AddCredits(credits)
-
-		CORPSE.SetCredits(rag, 0)
-
-		ServerLog(ply:Nick() .. " took " .. credits .. " credits from the body of " .. corpseNick .. "\n")
-
-		events.Trigger(EVENT_CREDITFOUND, ply, rag, credits)
-	end
-	
 	hook.Add("TTTCanSearchCorpse", "DefectiveCanSearchCorpse", function(ply, corpse, isCovert, isLongRange)
 		if not corpse then
 			return
@@ -692,27 +533,6 @@ if SERVER then
 			corpse.was_role = ROLE_DETECTIVE
 			corpse.was_team = TEAM_INNOCENT
 			corpse.role_color = DETECTIVE.color
-		end
-		
-		if not AllowDetsToInspect() then
-			SendDefectiveInspectionNotice(ply)
-			
-			--Give any found credits on the body before leaving.
-			GiveFoundCredits(ply, corpse, isLongRange)
-			
-			return false
-		end
-	end)
-	
-	hook.Add("TTTCanIdentifyCorpse", "DefectiveCanIdentifyCorpse", function(ply, rag)
-		if not AllowDetsToInspect() then
-			SendDefectiveInspectionNotice(ply)
-			return false
-		end
-		
-		if not AllowDetsToConfirm() and not CORPSE.GetFound(rag, false) then
-			SendDefectiveConfirmationNotice(ply)
-			return false
 		end
 	end)
 	
@@ -759,15 +579,6 @@ if SERVER then
 				
 				--Inform everyone about the def's true role
 				SendPlayerToEveryone(ply)
-			end
-		end
-	end)
-	
-	hook.Add("TTT2ModifyCorpseCallRadarRecipients", "DefectiveModifyCorpseCallRadarRecipients", function(plyTable, rag, ply)
-		--Add defectives to list of players that are called when someone hits the "Call Detective" button
-		for _, ply_i in pairs(player.GetAll()) do
-			if ply_i:IsTerror() and ply_i:Alive() and ply_i:GetSubRole() == ROLE_DEFECTIVE and not ply_i:GetSubRoleData().disabledTeamChatRec then
-				plyTable[#plyTable + 1] = ply_i
 			end
 		end
 	end)
