@@ -36,6 +36,8 @@ function ROLE:PreInitialize()
 	self.isPublicRole = true
 	--This role has the abilities of a Detective. Also gives the Defective a hat on some player models
 	self.isPolicingRole = true
+	--This role can see which players are missing in action as well as the haste timer.
+	self.isOmniscientRole = true
 	
 	-- conVarData
 	self.conVarData = {
