@@ -584,6 +584,18 @@ if SERVER then
 			end
 		end
 	end)
+	
+	local function ResetDefectiveDataForServer()
+		local plys = player.GetAll()
+		for i = 1, #plys do
+			local ply = plys[i]
+			
+			ply.det_role_masked_by_def = nil
+		end
+	end
+	hook.Add("TTTPrepareRound", "TTTPrepareRoundDefectiveServer", ResetDefectiveDataForServer)
+	hook.Add("TTTBeginRound", "TTTBeginRoundDefectiveServer", ResetDefectiveDataForServer)
+	hook.Add("TTTEndRound", "TTTEndRoundDefectiveServer", ResetDefectiveDataForServer)
 end
 
 if CLIENT then
