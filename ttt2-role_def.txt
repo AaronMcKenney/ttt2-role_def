@@ -74,5 +74,4 @@ Convars are variables that are introduced to allow server owners to customize th
 [URL=https://steamcommunity.com/profiles/76561198025772353/]BlackMagicFine[/URL]: creator of this role addon
 [URL=https://steamcommunity.com/id/SmugglesTheButt/]Smuggles[/URL]: designer of the role icon
 [URL=https://steamcommunity.com/id/mineotopia]Mineotopia[/URL]: designer of the role thumbnail
-[URL=https://steamcommunity.com/id/ingmodsince2008/]berry[/URL]: Russian translation
-[URL=https://github.com/Creyox]Creyox[/URL]: German translation
+[URL=https://steamcommunity.com/id/ingmodsince2008/]berry[/URL], [URL=https://github.com/Creyox]Creyox[/URL], [URL=https://github.com/sbzlzh]sbzlzh[/URL]: translators
