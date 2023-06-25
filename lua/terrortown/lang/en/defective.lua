@@ -10,6 +10,9 @@ L["ttt2_desc_" .. DEFECTIVE.name] = [[You are Defective! A Defective plays in th
 
 -- OTHER ROLE LANGUAGE STRINGS
 L["inform_everyone_" .. DEFECTIVE.name] = "Someone is Defective!"
+L["inform_visage_" .. DEFECTIVE.name] = "You have been disguised as a {role}"
+L["inform_visage_generic_" .. DEFECTIVE.name] = "Defective {name} is disguised as a {role}"
+L["visage_display_" .. DEFECTIVE.name] = "Disguised as a {role}"
 L["prevent_def_to_tra_comm_" .. DEFECTIVE.name] = "Defectives are not allowed to use traitor chat/voice."
 L["prevent_tra_to_def_comm_" .. DEFECTIVE.name] = "Traitors are not allowed to use traitor chat/voice until every Defective is dead."
 L["prevent_order_" .. DEFECTIVE.name] = "Can't buy items/weapons that defectives can't buy."
@@ -25,3 +28,5 @@ L["title_event_def_demote_det"] = "A Defective demoted Detectives"
 L["desc_event_def_demote_det"] = "{name} has been demoted from {oldRole} to Innocent."
 L["title_event_def_undo_jam"] = "Jammed roles were returned as all Defectives are dead and can be revealed"
 L["desc_event_def_undo_jam"] = "A Defective previously jammed {name}. Their previous role ({oldRole}) was returned to them."
+L["title_event_def_give_visage"] = "A Defective was given the visage of a Detective role"
+L["desc_event_def_give_visage"] = "Defective {name} looked like a {role} to other players."

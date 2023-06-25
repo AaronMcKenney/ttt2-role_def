@@ -84,10 +84,11 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 	})
 	
 	--# How should special detectives (ex. Sheriff, Vigilante, Sniffer) be handled when the defective is in play?
-	--  ttt2_defective_special_det_handling_mode [0..2] (default: 1)
+	--  ttt2_defective_special_det_handling_mode [0..3] (default: 1)
 	--  # 0: Do not alter special dets
 	--  # 1: Force all special dets to be normal dets
 	--  # 2: Force all special dets to be normal dets, but give them back their roles if: all defs are dead, defs can be revealed, and the former special det didn't undergo a role change (ex. did not become infected)
+	--  # 3: Do not alter special dets. The Defective has a chance to take the visage of a special det, but will not have any of their abilities.
 	table.insert(tbl[ROLE_DEFECTIVE], {
 		cvar = "ttt2_defective_special_det_handling_mode",
 		combobox = true,
@@ -96,6 +97,7 @@ hook.Add("TTTUlxDynamicRCVars", "TTTUlxDynamicDefectiveCVars", function(tbl)
 			"0 - Do not alter special dets",
 			"1 - Force all special dets to be normal dets",
 			"2 - Force all special dets to be normal dets until all defs are dead",
+			"3 - Do not alter special dets. Def may take visage of special dets"
 		},
 		numStart = 0
 	})

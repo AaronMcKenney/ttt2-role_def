@@ -2,6 +2,7 @@ if SERVER then
 	AddCSLuaFile()
 	resource.AddFile("materials/vgui/ttt/dynamic/roles/icon_def.vmt")
 	util.AddNetworkString("TTT2DefectiveInformEveryone")
+	util.AddNetworkString("TTT2DefectiveInformVisage")
 	util.AddNetworkString("TTT2AtLeastOneDefectiveLives_TraitorOnly")
 end
 
@@ -73,9 +74,17 @@ if SERVER then
 	--ttt2_defective_corpse_reveal_mode enum
 	local REVEAL_MODE = {NEVER = 0, ALL_DEAD = 1, ALL_DEFS_DEAD = 2, ALWAYS = 3}
 	--ttt2_defective_det_handling_mode enum
-	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2}
+	local SPECIAL_DET_MODE = {NEVER = 0, JAM = 1, JAM_TEMP = 2, VISAGE = 3}
 	--Used in JamDetective to determine what role the player is being forced to
 	local JAM_DET_MODE = {BASE_DET = 0, INNO = 1}
+	--Used for determining what visage is possible for VISAGE mode (N, R, and W are used for indexing DET_VISAGE_LIST)
+	local NUM_PLYS_AT_ROUND_BEGIN = 0
+	local DET_VISAGE_LIST = nil
+	local DET_VISAGE_LIST_TOTAL_WEIGHT = 0
+	local N = 1
+	local R = 2
+	local W = 3
+	local STEAMID64_TO_VISAGE_ROLE_MAP = nil
 	
 	local function IsInSpecDM(ply)
 		if SpecDM and (ply.IsGhost and ply:IsGhost()) then
@@ -84,7 +93,19 @@ if SERVER then
 		
 		return false
 	end
-	
+
+	local function GetNumPlayers()
+		local num_players = 0
+
+		for _, ply in ipairs(player.GetAll()) do
+			if not ply:IsSpec() then
+				num_players = num_players + 1
+			end
+		end
+		
+		return num_players
+	end
+
 	local function RevealOnlyRequiresDeadDefs()
 		local m = GetConVar("ttt2_defective_corpse_reveal_mode"):GetInt()
 		return (m == REVEAL_MODE.ALWAYS or m == REVEAL_MODE.ALL_DEFS_DEAD)
@@ -162,7 +183,7 @@ if SERVER then
 				ply.det_role_masked_by_def = ply:GetSubRole()
 				ply:SetRole(ROLE_DETECTIVE)
 				
-				if def_doing_setup_logic == true then
+				if def_doing_setup_logic then
 					timer.Simple(0.1, function()
 						--Force the detective to have the correct number of credits, since ULX doesn't seem to care about that.
 						ply:SetCredits(GetConVar("ttt_det_credits_starting"):GetInt())
@@ -173,7 +194,7 @@ if SERVER then
 				events.Trigger(EVENT_DEF_DEMOTE_DET, ply)
 				ply:SetRole(ROLE_INNOCENT)
 				
-				if def_doing_setup_logic == true then
+				if def_doing_setup_logic then
 					timer.Simple(0.1, function()
 						ply:SetCredits(0)
 					end)
@@ -242,13 +263,139 @@ if SERVER then
 		end
 	end
 	
-	local function ResetDefectivePlayerDataForServer()
-		def_doing_setup_logic = false
+	local function CalculateDetectiveVisages()
+		--Viable roles are those that the player could have feasible gotten at the beginning of the round
+		local det_visage_list = {}
+		local total_weight = 0
+		local role_data_list = roles.GetList()
+
+		for i = 1, #role_data_list do
+			local role_data = role_data_list[i]
+			if role_data.notSelectable or role_data:GetBaseRole() ~= ROLE_DETECTIVE then
+				--notSelectable is true for roles spawned under special circumstances, such as the Deputy
+				continue
+			end
+			
+			--role_data.builtin will be true for INNOCENT and TRAITOR, which are always enabled.
+			local enabled = true
+			local min_players = 0
+			if not role_data.builtin then
+				enabled = GetConVar("ttt_" .. role_data.name .. "_enabled"):GetBool()
+				min_players = GetConVar("ttt_" .. role_data.name .. "_min_players"):GetInt()
+			end
+			if not enabled or min_players > NUM_PLYS_AT_ROUND_BEGIN then
+				continue
+			end
+
+			local weight = GetConVar("ttt_" .. role_data.name .. "_random"):GetInt()
+			total_weight = total_weight + weight
+			det_visage_list[#det_visage_list + 1] = {role_data.name, role_data.index, weight}
+		end
+		
+		DET_VISAGE_LIST = det_visage_list
+		DET_VISAGE_LIST_TOTAL_WEIGHT = total_weight
+		
+		--DEF_DEBUG
+		--debug_str = "DEF_DEBUG CalculateDetectiveVisages: Printing (role, index, weight) list with total weight " .. tostring(DET_VISAGE_LIST_TOTAL_WEIGHT) .. ": [ "
+		--for i = 1, #DET_VISAGE_LIST do
+		--	debug_str = debug_str .. "(" .. tostring(DET_VISAGE_LIST[i][N]) .. "," .. tostring(DET_VISAGE_LIST[i][R]) .. "," .. tostring(DET_VISAGE_LIST[i][W]) .. ") "
+		--end
+		--debug_str = debug_str .. "]"
+		--print(debug_str)
 	end
-	hook.Add("TTTPrepareRound", "DefectivePrepareRoundForServer", ResetDefectivePlayerDataForServer())
-	hook.Add("TTTEndRound", "DefectivePrepareEndForServer", ResetDefectivePlayerDataForServer())
+	
+	local function InformPlayersOfVisages()
+		--We have to handle both role and team updates, so it's easier to send info to all players, either telling them the given visage of all Defectives or telling them to reset visage data on their client
+		local show_to_tra = GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool()
+		local show_to_def = GetConVar("ttt2_defective_can_see_defectives"):GetBool()
+
+		for _, ply_i in ipairs(player.GetAll()) do
+			local visage_table = {}
+			local num_visages = 0
+			for _, def_ply in ipairs(player.GetAll()) do
+				if def_ply:GetSubRole() ~= ROLE_DEFECTIVE then
+					continue
+				end
+
+				if ply_i:SteamID64() == def_ply:SteamID64() or (show_to_tra and ply_i:GetTeam() == TEAM_TRAITOR and ply_i:GetSubRole() ~= ROLE_DEFECTIVE) or (show_to_def and ply_i:GetSubRole() == ROLE_DEFECTIVE) then
+					visage_table[def_ply:GetName()] = def_ply.ttt2_def_visage or ROLE_DETECTIVE
+					num_visages = num_visages + 1
+				end
+			end
+
+			net.Start("TTT2DefectiveInformVisage")
+			net.WriteInt(num_visages, 16)
+			for def_name, visage in pairs(visage_table) do
+				--Can't use net.WriteInt on a SteamID64, as that only supports 32 bits. Also SteamID64() doesn't work on clients if the player is a bot, which makes debugging difficult.
+				net.WriteString(def_name)
+				net.WriteInt(visage, 16)
+			end
+			net.Send(ply_i)
+
+			--DEF_DEBUG
+			--local debug_str = "DEF_DEBUG InformPlayersOfVisages: visage_table(" .. ply_i:GetName() .. ")=[ "
+			--for def_id, role_id in pairs(visage_table) do
+			--	debug_str = debug_str .. "(" .. def_id .. "," .. roles.GetByIndex(role_id).name ..") "
+			--end
+			--debug_str = debug_str .. "] (num_visages=" .. tostring(num_visages) .. ")"
+			--print(debug_str)
+		end
+	end
+	
+	local function DisguiseDefective(ply, m)
+		if ply:GetSubRole() == ROLE_DEFECTIVE and ply.ttt2_def_visage == nil then
+			local chosen_name = "???"
+
+			if m ~= SPECIAL_DET_MODE.VISAGE or DET_VISAGE_LIST == nil or DET_VISAGE_LIST_TOTAL_WEIGHT <= 0 then
+				--Always disguise the Defective as a regular old Detective if the mode isn't VISAGE
+				chosen_name = roles.GetByIndex(ROLE_DETECTIVE).name
+				ply.ttt2_def_visage = ROLE_DETECTIVE
+
+				--print("DEF_DEBUG DisguiseDefectives: Defective " .. ply:GetName() .. " has been given the visage of a normal " .. chosen_name)
+			else
+				--Disguise the Defective as a particular Detective role (ex. Detective/Sniffer/Sherriff/Banker)
+				--They won't get any of the abilities, but instead keep the abilities of the Detective.
+				--This will understandably put them at a disadvantage, though it does allow the Defective to play with other special Detectives at least.
+
+				local chosen_role = ROLE_DETECTIVE
+				local chosen_weight = math.random(1, DET_VISAGE_LIST_TOTAL_WEIGHT)
+				local current_weight = 0
+				for i = 1, #DET_VISAGE_LIST do
+					current_weight = current_weight + DET_VISAGE_LIST[i][W]
+					if current_weight >= chosen_weight then
+						chosen_name = DET_VISAGE_LIST[i][N]
+						chosen_role = DET_VISAGE_LIST[i][R]
+						break
+					end
+				end
+
+				ply.ttt2_def_visage = chosen_role
+				
+				--print("DEF_DEBUG DisguiseDefectives: Defective " .. ply:GetName() .. " has been randomly assigned the visage of role '" .. chosen_name .. "' (index=" .. tostring(ply.ttt2_def_visage) .. "), with chosen_weight=" .. tostring(chosen_weight))
+			end
+			
+			if STEAMID64_TO_VISAGE_ROLE_MAP == nil then
+				STEAMID64_TO_VISAGE_ROLE_MAP = {}
+			end
+			STEAMID64_TO_VISAGE_ROLE_MAP[ply:SteamID64()] = ply.ttt2_def_visage
+			events.Trigger(EVENT_DEF_GIVE_VISAGE, ply, chosen_name)
+		end
+	end
+	
+	local function DisguiseDefectives(m)
+		for _, ply in ipairs(player.GetAll()) do
+			DisguiseDefective(ply, m)
+		end
+	end
 	
 	hook.Add("TTTBeginRound", "DefectiveBeginRoundForServer", function()
+		--Cache this variable early in case a Defective joins midgame.
+		NUM_PLYS_AT_ROUND_BEGIN = GetNumPlayers()
+
+		if not AtLeastOneDefExists() then
+			return
+		end
+
 		def_doing_setup_logic = true
 		
 		if GetConVar("ttt2_defective_disable_spawn_if_no_detective"):GetBool() and not AtLeastOneDetExists() then
@@ -262,7 +409,7 @@ if SERVER then
 		
 		local num_demotions = GetNumDetectiveDemotions()
 		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
-		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) or num_demotions > 0 then
+		if m == SPECIAL_DET_MODE.JAM or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) or num_demotions > 0 then
 			--Force all special detectives to be normal detectives, in case they have some special equipment or ability that could instantly be used to make them trustworthy.
 			--Also force detectives to be innocent, if demotions are required
 			--Player table is shuffled to randomize who gets demoted.
@@ -274,12 +421,27 @@ if SERVER then
 					JamDetective(ply, ply:GetBaseRole(), ply:GetSubRole(), JAM_DET_MODE.BASE_DET)
 				end
 			end
+		elseif m == SPECIAL_DET_MODE.VISAGE then
+			CalculateDetectiveVisages()
 		end
 		
+		DisguiseDefectives(m)
+		InformPlayersOfVisages()
+		
 		--Only send popup here, as opposed to also sending it on TTT2UpdateSubrole, as doing so could reveal the newly created defective.
-		if GetConVar("ttt2_defective_inform_everyone"):GetBool() and AtLeastOneDefExists() and AtLeastOneDetExists() then
-			net.Start("TTT2DefectiveInformEveryone")
-			net.Broadcast()
+		if GetConVar("ttt2_defective_inform_everyone"):GetBool() and AtLeastOneDetExists() then
+			if m ~= SPECIAL_DET_MODE.VISAGE then
+				net.Start("TTT2DefectiveInformEveryone")
+				net.Broadcast()
+			else
+				--Don't send the popup to Defectives, as we've already sent a more important pop up in the DisguiseDefectives call to inform them of their visage.
+				for _, ply in ipairs(player.GetAll()) do
+					if ply:GetSubRole() ~= ROLE_DEFECTIVE then
+						net.Start("TTT2DefectiveInformEveryone")
+						net.Send(ply)
+					end
+				end
+			end
 		end
 		
 		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
@@ -310,14 +472,41 @@ if SERVER then
 				JamDetective(self, base_role, subrole, JAM_DET_MODE.BASE_DET)
 			end)
 		end
+
+		if oldSubrole == ROLE_DEFECTIVE and oldSubrole ~= subrole then
+			--Remove the visage that the former Defective had
+			self.ttt2_def_visage = nil
+			if STEAMID64_TO_VISAGE_ROLE_MAP then
+				STEAMID64_TO_VISAGE_ROLE_MAP[self:SteamID64()] = nil
+			end
+			
+			--Don't call this function during setup. It will be called after roles have been changed.
+			if not def_doing_setup_logic then
+				InformPlayersOfVisages()
+			end
+		end
 		
 		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
 	end)
 	
+	hook.Add("TTT2UpdateTeam", "DefectiveUpdateTeam", function(ply, oldTeam, newTeam)
+		if AtLeastOneDefExists() then
+			--Resend visages in case a player changes to or from a team that can see the Defective's true identity
+			InformPlayersOfVisages()
+		end
+	end)
+	
 	function ROLE:GiveRoleLoadout(ply, isRoleChange)
-		--print("DEF_DEBUG GiveRoleLoadout: " .. ply:GetName() .. " is a Defective")
+		--We disguise all Defectives when the round begins. However, if the Defective spawns mid-game, we'll need to whip up a quick disguise.
+		--"NUM_PLYS_AT_ROUND_BEGIN > 0 and not def_doing_setup_logic" probably isn't necessary, but whatever.
+		if isRoleChange and NUM_PLYS_AT_ROUND_BEGIN > 0 and not def_doing_setup_logic then
+			--print("DEF_DEBUG GiveRoleLoadout: NUM_PLYS_AT_ROUND_BEGIN=" .. tostring(NUM_PLYS_AT_ROUND_BEGIN) .. ", GetRoundState=" .. tostring(GetRoundState()))
+			
+			DisguiseDefective(ply, GetConVar("ttt2_defective_special_det_handling_mode"):GetInt())
+			InformPlayersOfVisages()
+		end
 		
-		--Send the role to everyone (role is changed during SendFullStateUpdate())
+		--Send the role to everyone (observed role is changed during SendFullStateUpdate())
 		--Sending this information here also handles cases where the def respawns, as without a SendFullStateUpdate() call their role could be revealed regardless of ConVar settings.
 		SendPlayerToEveryone(ply)
 		SendFullStateUpdate()
@@ -336,7 +525,7 @@ if SERVER then
 		local can_reveal_dead_def = CanADeadDefBeRevealed()
 		
 		for ply_i in pairs(tbl) do
-			if not ply_i:IsTerror() or ply_i == ply then
+			if not ply_i:IsTerror() or ply_i:SteamID64() == ply:SteamID64() then
 				continue
 			end
 			
@@ -349,7 +538,7 @@ if SERVER then
 				
 				if ply:GetTeam() ~= TEAM_TRAITOR or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
 					--Make the defective look like a detective to all non-traitors.
-					tbl[ply_i] = {ROLE_DETECTIVE, TEAM_INNOCENT}
+					tbl[ply_i] = {ply_i.ttt2_def_visage or ROLE_DETECTIVE, TEAM_INNOCENT}
 				else
 					--Reveal the defective's role to their team mates
 					tbl[ply_i] = {ROLE_DEFECTIVE, TEAM_TRAITOR}
@@ -372,7 +561,7 @@ if SERVER then
 				if GetConVar("ttt2_defective_can_see_defectives"):GetBool() then
 					tbl[ply_i] = {ROLE_DEFECTIVE, TEAM_TRAITOR}
 				else
-					tbl[ply_i] = {ROLE_DETECTIVE, TEAM_INNOCENT}
+					tbl[ply_i] = {ply_i.ttt2_def_visage or ROLE_DETECTIVE, TEAM_INNOCENT}
 				end
 			end
 		end
@@ -383,7 +572,7 @@ if SERVER then
 		if ply:GetSubRole() ~= ROLE_DEFECTIVE and target:GetSubRole() == ROLE_DEFECTIVE then
 			if ply:GetTeam() ~= TEAM_TRAITOR or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
 				--Make the defective look like a detective to all non-traitors.
-				return ROLE_DETECTIVE, TEAM_INNOCENT
+				return target.ttt2_def_visage or ROLE_DETECTIVE, TEAM_INNOCENT
 			else
 				--Reveal the defective's role to their team mates
 				return ROLE_DEFECTIVE, TEAM_TRAITOR
@@ -406,7 +595,7 @@ if SERVER then
 			if GetConVar("ttt2_defective_can_see_defectives"):GetBool() then
 				return ROLE_DEFECTIVE, TEAM_TRAITOR
 			else
-				return ROLE_DETECTIVE, TEAM_INNOCENT
+				return target.ttt2_def_visage or ROLE_DETECTIVE, TEAM_INNOCENT
 			end
 		end
 	end)
@@ -532,9 +721,17 @@ if SERVER then
 		
 		--Show all defectives as detectives when searched.
 		if corpse.was_role == ROLE_DEFECTIVE and not CanADeadDefBeRevealed() then
-			corpse.was_role = ROLE_DETECTIVE
-			corpse.was_team = TEAM_INNOCENT
-			corpse.role_color = DETECTIVE.color
+			if not STEAMID64_TO_VISAGE_ROLE_MAP or not STEAMID64_TO_VISAGE_ROLE_MAP[corpse.sid64] then
+				--Fallback to plain Detective. Hopefully we don't enter here.
+				corpse.was_role = ROLE_DETECTIVE
+				corpse.was_team = TEAM_INNOCENT
+				corpse.role_color = DETECTIVE.color
+			else
+				local def_vis_role_data = roles.GetByIndex(STEAMID64_TO_VISAGE_ROLE_MAP[corpse.sid64])
+				corpse.was_role = STEAMID64_TO_VISAGE_ROLE_MAP[corpse.sid64]
+				corpse.was_team = def_vis_role_data.defaultTeam
+				corpse.role_color = def_vis_role_data.color
+			end
 		end
 	end)
 	
@@ -542,7 +739,7 @@ if SERVER then
 		if IsValid(confirmed) and corpse and confirmed:GetSubRole() == ROLE_DEFECTIVE and not CanADeadDefBeRevealed() then
 			--Confirm player as a detective
 			confirmed:ConfirmPlayer(true)
-			SendRoleListMessage(ROLE_DETECTIVE, TEAM_INNOCENT, {confirmed:EntIndex()})
+			SendRoleListMessage(confirmed.ttt2_def_visage or ROLE_DETECTIVE, TEAM_INNOCENT, {confirmed:EntIndex()})
 			--Update the scoreboard to show the def as a det.
 			events.Trigger(EVENT_BODYFOUND, finder, corpse)
 			
@@ -586,30 +783,97 @@ if SERVER then
 	end)
 	
 	local function ResetDefectiveDataForServer()
-		local plys = player.GetAll()
-		for i = 1, #plys do
-			local ply = plys[i]
-			
+		def_doing_setup_logic = false
+		NUM_PLYS_AT_ROUND_BEGIN = 0
+		DET_VISAGE_LIST = nil
+		DET_VISAGE_LIST_TOTAL_WEIGHT = 0
+		STEAMID64_TO_VISAGE_ROLE_MAP = nil
+		
+		for _, ply in ipairs(player.GetAll()) do
+			ply.ttt2_def_visage = nil
 			ply.det_role_masked_by_def = nil
 		end
 	end
-	hook.Add("TTTPrepareRound", "TTTPrepareRoundDefectiveServer", ResetDefectiveDataForServer)
-	hook.Add("TTTBeginRound", "TTTBeginRoundDefectiveServer", ResetDefectiveDataForServer)
-	hook.Add("TTTEndRound", "TTTEndRoundDefectiveServer", ResetDefectiveDataForServer)
+	hook.Add("TTTPrepareRound", "DefectivePrepareRoundForServer", ResetDefectiveDataForServer)
+	hook.Add("TTTEndRound", "DefectivePrepareEndForServer", ResetDefectiveDataForServer)
 end
 
 if CLIENT then
+	local icon_def = Material("vgui/ttt/dynamic/roles/icon_def")
 	local at_least_one_def_lives_traitor_only = false
+	local NAME_TO_VISAGE_ROLE_MAP = nil
+
 	local function ResetDefectivePlayerDataForClient()
 		--Initialize data that this client needs to know, but must be kept secret from other clients.
 		at_least_one_def_lives_traitor_only = false
+		NAME_TO_VISAGE_ROLE_MAP = nil
 	end
 	hook.Add("TTTEndRound", "ResetDefectiveForClientOnEndRound", ResetDefectivePlayerDataForClient)
 	hook.Add("TTTPrepareRound", "ResetDefectiveForClientOnPrepareRound", ResetDefectivePlayerDataForClient)
 	hook.Add("TTTBeginRound", "ResetDefectiveForClientOnBeginRound", ResetDefectivePlayerDataForClient)
 	
 	net.Receive("TTT2DefectiveInformEveryone", function()
+		local client = LocalPlayer()
+
 		EPOP:AddMessage({text = LANG.GetTranslation("inform_everyone_" .. DEFECTIVE.name), color = DEFECTIVE.color}, "", 6)
+	end)
+	
+	net.Receive("TTT2DefectiveInformVisage", function()
+		local client = LocalPlayer()
+		
+		--WARNING: If a player changes roles to or from Defective in the middle of the round, this function will be called before the role has fully been changed.
+		--print("DEF_DEBUG TTT2DefectiveInformVisage: client:GetName()=" .. client:GetName() .. ", client:SteamID64()=" .. tostring(client:SteamID64()) .. ", client:GetRoleString()=" .. client:GetRoleString())
+		
+		local num_visages = net.ReadInt(16)
+		if num_visages <= 0 then
+			--We are told to forget everything about any visages we may or may not have heard of.
+			NAME_TO_VISAGE_ROLE_MAP = {}
+			return
+		end
+		
+		local old_visage_map = {}
+		if NAME_TO_VISAGE_ROLE_MAP then
+			for def_id_str, def_visage in pairs(NAME_TO_VISAGE_ROLE_MAP) do
+				old_visage_map[def_id_str] = def_visage
+			end
+		end
+		
+		--Clear out any stale visages that may have been present.
+		NAME_TO_VISAGE_ROLE_MAP = {}
+		
+		--Read in the table
+		for i = 1, num_visages do
+			local def_id_str = net.ReadString()
+			local def_visage = net.ReadInt(16)
+			local def_visage_role_data = roles.GetByIndex(def_visage)
+			
+			NAME_TO_VISAGE_ROLE_MAP[def_id_str] = def_visage
+			
+			--Display a large and loud pop-up on Defective's client if they are given a new visage that's different from their current one.
+			if client:GetName() == def_id_str and def_visage ~= old_visage_map[def_id_str] then
+				EPOP:AddMessage({text = LANG.GetParamTranslation("inform_visage_" .. DEFECTIVE.name, {role = def_visage_role_data.name}), color = def_visage_role_data.color}, "", 6)
+			end
+			
+			--If a Defective has received a new visage, inform everyone who can know this via a small chat message.
+			if def_visage ~= old_visage_map[def_id_str] then
+				LANG.Msg("inform_visage_generic_" .. DEFECTIVE.name, {name = def_id_str, role = def_visage_role_data.name}, MSG_CHAT_WARN)
+			end
+		end
+		
+		--DEF_DEBUG
+		--local debug_str = "DEF_DEBUG TTT2DefectiveInformVisage: old_visage_map(" .. client:GetName() .. ")=[ "
+		--for def_id_str, def_visage in pairs(old_visage_map) do
+		--	debug_str = debug_str .. "(" .. def_id_str .. "," .. roles.GetByIndex(def_visage).name ..") "
+		--end
+		--debug_str = debug_str .. "]"
+		--print(debug_str)
+		--debug_str = "DEF_DEBUG TTT2DefectiveInformVisage: NAME_TO_VISAGE_ROLE_MAP(" .. client:GetName() .. ")=[ "
+		--for def_id_str, def_visage in pairs(NAME_TO_VISAGE_ROLE_MAP) do
+		--	debug_str = debug_str .. "(" .. def_id_str .. "," .. roles.GetByIndex(def_visage).name ..") "
+		--end
+		--debug_str = debug_str .. "]"
+		--print(debug_str)
+		--DEF_DEBUG
 	end)
 	
 	net.Receive("TTT2AtLeastOneDefectiveLives_TraitorOnly", function()
@@ -633,6 +897,20 @@ if CLIENT then
 			--Prevent traitors from talking to their team mates through traitor chat, which would reveal their roles to the def.
 			return false
 		end
+	end)
+
+	hook.Add("TTTRenderEntityInfo", "TTTRenderEntityInfoDefective", function(tData)
+		local ply = tData:GetEntity()
+
+		if not IsValid(ply) or not ply:IsPlayer() or not NAME_TO_VISAGE_ROLE_MAP or not NAME_TO_VISAGE_ROLE_MAP[ply:GetName()] then
+			return
+		end
+
+		local visage_role_data = roles.GetByIndex(NAME_TO_VISAGE_ROLE_MAP[ply:GetName()])
+		tData:AddDescriptionLine(
+			LANG.GetParamTranslation("visage_display_" .. DEFECTIVE.name, {role = visage_role_data.name}),
+			visage_role_data.ltcolor
+		)
 	end)
 end
 

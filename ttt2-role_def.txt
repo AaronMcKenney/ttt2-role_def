@@ -58,10 +58,11 @@ Convars are variables that are introduced to allow server owners to customize th
   # 2: Search reveals def's role when all defs are dead
   # 3: Search reveals def's role
 # How should special detectives (ex. Sheriff, Vigilante, Sniffer) be handled when the defective is in play?
-  ttt2_defective_special_det_handling_mode [0..2] (default: 1)
+  ttt2_defective_special_det_handling_mode [0..3] (default: 1)
   # 0: Do not alter special dets
   # 1: Force all special dets to be normal dets
   # 2: Force all special dets to be normal dets, but give them back their roles if: all defs are dead, defs can be revealed, and the former special det didn't undergo a role change (ex. did not become infected)
+  # 3: Do not alter special dets. The Defective has a chance to take the visage of a special det, but will not have any of their abilities.
 # If there are no detectives at the beginning of the round, should any player with this role be forced into a generic Traitor role?
   ttt2_defective_disable_spawn_if_no_detective [0/1] (default: 1)
 # The chance that at the beginning of the round a detective will be "demoted" into an innocent for every defective.
