@@ -68,9 +68,11 @@ function ROLE:Initialize()
 end
 
 if SERVER then
-	--CONSTANTS
+	--CONSTANTS/GLOBALS
 	--Used to identify if we're currently setting up role logic in the beginning of the round
-	local def_doing_setup_logic = false
+	local DEF_DOING_SETUP_LOGIC = false
+	--This won't be true until all of the setup has been done, meaning that actions before setup won't occur.
+	local DEF_SETUP_COMPLETE = false
 	--ttt2_defective_corpse_reveal_mode enum
 	local REVEAL_MODE = {NEVER = 0, ALL_DEAD = 1, ALL_DEFS_DEAD = 2, ALWAYS = 3}
 	--ttt2_defective_det_handling_mode enum
@@ -173,6 +175,24 @@ if SERVER then
 		end
 	end
 	
+	local function SpyIsJamming()
+		local spy_jam = false
+		
+		--If the spy is in play, Traitors should not be told who the Defective is! The only player who should know the Defective's visage in this case is the Defective themselves.
+		if ROLE_SPY then
+			for _, ply_i in ipairs(player.GetAll()) do
+				--print("DEF_DEBUG SpyIsJamming: " .. ply_i:GetName() .. ": (ply_i:GetSubRole() == ROLE_SPY)=" .. tostring(ply_i:GetSubRole() == ROLE_SPY) .. ", (ply_i:IsTerror())=" .. tostring(ply_i:IsTerror()) .. ", ply_i:Alive()=" .. tostring(ply_i:Alive()) .. ", IsInSpecDM(ply_i)=" .. tostring(IsInSpecDM(ply_i)))
+				if ply_i:GetSubRole() == ROLE_SPY and ply_i:IsTerror() and ply_i:Alive() and not IsInSpecDM(ply_i) then
+					spy_jam = true
+					break
+				end
+			end
+		end
+		
+		--print("DEF_DEBUG SpyIsJamming: spy_jam=" .. tostring(spy_jam))
+		return spy_jam
+	end
+	
 	local function JamDetective(ply, base_role, sub_role, jam_det_mode)
 		if ply:IsTerror() and ply:Alive() and base_role == ROLE_DETECTIVE and (sub_role ~= ROLE_DETECTIVE or jam_det_mode == JAM_DET_MODE.INNO) then
 			if jam_det_mode == JAM_DET_MODE.BASE_DET then
@@ -183,7 +203,7 @@ if SERVER then
 				ply.det_role_masked_by_def = ply:GetSubRole()
 				ply:SetRole(ROLE_DETECTIVE)
 				
-				if def_doing_setup_logic then
+				if DEF_DOING_SETUP_LOGIC then
 					timer.Simple(0.1, function()
 						--Force the detective to have the correct number of credits, since ULX doesn't seem to care about that.
 						ply:SetCredits(GetConVar("ttt_det_credits_starting"):GetInt())
@@ -194,7 +214,7 @@ if SERVER then
 				events.Trigger(EVENT_DEF_DEMOTE_DET, ply)
 				ply:SetRole(ROLE_INNOCENT)
 				
-				if def_doing_setup_logic then
+				if DEF_DOING_SETUP_LOGIC then
 					timer.Simple(0.1, function()
 						ply:SetCredits(0)
 					end)
@@ -308,16 +328,18 @@ if SERVER then
 		--We have to handle both role and team updates, so it's easier to send info to all players, either telling them the given visage of all Defectives or telling them to reset visage data on their client
 		local show_to_tra = GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool()
 		local show_to_def = GetConVar("ttt2_defective_can_see_defectives"):GetBool()
+		local spy_jam = SpyIsJamming()
 
 		for _, ply_i in ipairs(player.GetAll()) do
 			local visage_table = {}
 			local num_visages = 0
 			for _, def_ply in ipairs(player.GetAll()) do
-				if def_ply:GetSubRole() ~= ROLE_DEFECTIVE then
+				local same_player = ply_i:SteamID64() == def_ply:SteamID64()
+				if def_ply:GetSubRole() ~= ROLE_DEFECTIVE or (spy_jam and not same_player) then
 					continue
 				end
 
-				if ply_i:SteamID64() == def_ply:SteamID64() or (show_to_tra and ply_i:GetTeam() == TEAM_TRAITOR and ply_i:GetSubRole() ~= ROLE_DEFECTIVE) or (show_to_def and ply_i:GetSubRole() == ROLE_DEFECTIVE) then
+				if same_player or (show_to_tra and ply_i:GetTeam() == TEAM_TRAITOR and ply_i:GetSubRole() ~= ROLE_DEFECTIVE) or (show_to_def and ply_i:GetSubRole() == ROLE_DEFECTIVE) then
 					visage_table[def_ply:GetName()] = def_ply.ttt2_def_visage or ROLE_DETECTIVE
 					num_visages = num_visages + 1
 				end
@@ -396,14 +418,14 @@ if SERVER then
 			return
 		end
 
-		def_doing_setup_logic = true
+		DEF_DOING_SETUP_LOGIC = true
 		
 		if GetConVar("ttt2_defective_disable_spawn_if_no_detective"):GetBool() and not AtLeastOneDetExists() then
 			--This round has no detectives! Quickly force all players of this role to be generic traitors.
 			DisableAllDefectives()
 			
 			--Now that there are no defectives, we can leave this hook without consequence.
-			def_doing_setup_logic = false
+			DEF_DOING_SETUP_LOGIC = false
 			return
 		end
 		
@@ -445,17 +467,24 @@ if SERVER then
 		end
 		
 		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
-		def_doing_setup_logic = false
+		DEF_DOING_SETUP_LOGIC = false
+		DEF_SETUP_COMPLETE = true
+	end)
+
+	hook.Add("PlayerSpawn", "DefectivePlayerSpawn", function(ply)
+		if DEF_SETUP_COMPLETE and AtLeastOneDefExists() then
+			InformPlayersOfVisages()
+			SendFullStateUpdate()
+		end
 	end)
 	
 	hook.Add("TTT2UpdateSubrole", "DefectiveUpdateSubrole", function(self, oldSubrole, subrole)
 		--Don't bother messing with role logic in the beginning of the round here, as that's already happening in TTTBeginRound hook.
-		if GetRoundState() ~= ROUND_ACTIVE or def_doing_setup_logic then
+		if GetRoundState() ~= ROUND_ACTIVE or DEF_DOING_SETUP_LOGIC then
 			return
 		end
 		
-		local base_role = roles.GetByIndex(subrole):GetBaseRole()
-		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
+		local at_least_one_def_exists = AtLeastOneDefExists()
 		
 		if self.det_role_masked_by_def and self.det_role_masked_by_def ~= subrole then
 			--Remove the special det's "true role" if they convert to anything other than their true role.
@@ -463,44 +492,53 @@ if SERVER then
 			self.det_role_masked_by_def = nil
 		end
 		
+		if not at_least_one_def_exists then
+			return
+		end
+		
 		--We do not immediately jam all special dets if a def shows up in the middle of the round, as that would immediately give away that they are a def.
 		--Only jam special dets that show up when a def is currently in play.
-		if (m == SPECIAL_DET_MODE.JAM and AtLeastOneDefExists()) or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
+		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
+		if m == SPECIAL_DET_MODE.JAM or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
 			--This timer is a hack to give time for the player to finish setup for their current role before we change it to their new role. It won't work if the current role takes a lot of time to setup.
 			--Specifically prevents situations where a sniffer is given their lens, but then changes to a detective before the lens can be properly removed.
+			local base_role = roles.GetByIndex(subrole):GetBaseRole()
 			timer.Simple(0.1, function()
 				JamDetective(self, base_role, subrole, JAM_DET_MODE.BASE_DET)
 			end)
 		end
 
-		if oldSubrole == ROLE_DEFECTIVE and oldSubrole ~= subrole then
+		if oldSubrole ~= subrole and oldSubrole == ROLE_DEFECTIVE then
 			--Remove the visage that the former Defective had
+			--Call it here instead of RemoveRoleLoadout, which is called whenever the player dies or generally has their role changed (latter does not specify what the old role was)
 			self.ttt2_def_visage = nil
 			if STEAMID64_TO_VISAGE_ROLE_MAP then
 				STEAMID64_TO_VISAGE_ROLE_MAP[self:SteamID64()] = nil
 			end
+		end
 			
-			--Don't call this function during setup. It will be called after roles have been changed.
-			if not def_doing_setup_logic then
-				InformPlayersOfVisages()
-			end
+		--Don't call this function during setup. Instead only call it if a role changes mid-game.
+		if DEF_SETUP_COMPLETE then
+			InformPlayersOfVisages()
+			SendFullStateUpdate()
 		end
 		
 		SendAtLeastOneDefectiveLivesTraitorOnlyMsg()
 	end)
 	
 	hook.Add("TTT2UpdateTeam", "DefectiveUpdateTeam", function(ply, oldTeam, newTeam)
-		if AtLeastOneDefExists() then
+		if DEF_SETUP_COMPLETE and AtLeastOneDefExists() then
 			--Resend visages in case a player changes to or from a team that can see the Defective's true identity
 			InformPlayersOfVisages()
+			SendFullStateUpdate()
 		end
 	end)
 	
 	function ROLE:GiveRoleLoadout(ply, isRoleChange)
 		--We disguise all Defectives when the round begins. However, if the Defective spawns mid-game, we'll need to whip up a quick disguise.
-		--"NUM_PLYS_AT_ROUND_BEGIN > 0 and not def_doing_setup_logic" probably isn't necessary, but whatever.
-		if isRoleChange and NUM_PLYS_AT_ROUND_BEGIN > 0 and not def_doing_setup_logic then
-			--print("DEF_DEBUG GiveRoleLoadout: NUM_PLYS_AT_ROUND_BEGIN=" .. tostring(NUM_PLYS_AT_ROUND_BEGIN) .. ", GetRoundState=" .. tostring(GetRoundState()))
+		--"NUM_PLYS_AT_ROUND_BEGIN > 0 and not DEF_DOING_SETUP_LOGIC" probably isn't necessary, but whatever.
+		if isRoleChange and DEF_SETUP_COMPLETE then
+			print("DEF_DEBUG GiveRoleLoadout: NUM_PLYS_AT_ROUND_BEGIN=" .. tostring(NUM_PLYS_AT_ROUND_BEGIN) .. ", GetRoundState=" .. tostring(GetRoundState()))
 			
 			DisguiseDefective(ply, GetConVar("ttt2_defective_special_det_handling_mode"):GetInt())
 			InformPlayersOfVisages()
@@ -523,6 +561,7 @@ if SERVER then
 		
 		--Cache boolean to save some processing time.
 		local can_reveal_dead_def = CanADeadDefBeRevealed()
+		local spy_jam = SpyIsJamming()
 		
 		for ply_i in pairs(tbl) do
 			if not ply_i:IsTerror() or ply_i:SteamID64() == ply:SteamID64() then
@@ -536,7 +575,7 @@ if SERVER then
 					continue
 				end
 				
-				if ply:GetTeam() ~= TEAM_TRAITOR or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
+				if ply:GetTeam() ~= TEAM_TRAITOR or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() or spy_jam then
 					--Make the defective look like a detective to all non-traitors.
 					tbl[ply_i] = {ply_i.ttt2_def_visage or ROLE_DETECTIVE, TEAM_INNOCENT}
 				else
@@ -547,7 +586,7 @@ if SERVER then
 			
 			--Handle how defectives see traitors
 			if ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:GetSubRole() ~= ROLE_DEFECTIVE and ply_i:GetTeam() == TEAM_TRAITOR then
-				if GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
+				if GetConVar("ttt2_defective_can_see_traitors"):GetBool() and not spy_jam then
 					--Allow for the defective to see their fellow traitors.
 					tbl[ply_i] = {ply_i:GetSubRole(), ply_i:GetTeam()}
 				else
@@ -557,7 +596,7 @@ if SERVER then
 			end
 			
 			--Handle how defectives see other defectives
-			if ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:GetSubRole() == ROLE_DEFECTIVE then
+			if ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:GetSubRole() == ROLE_DEFECTIVE and not spy_jam then
 				if GetConVar("ttt2_defective_can_see_defectives"):GetBool() then
 					tbl[ply_i] = {ROLE_DEFECTIVE, TEAM_TRAITOR}
 				else
@@ -568,9 +607,11 @@ if SERVER then
 	end)
 	
 	hook.Add("TTT2ModifyRadarRole", "DefectiveModifyRadarRole", function(ply, target)
+		local spy_jam = SpyIsJamming()
+
 		--Handle how everyone sees a defective
 		if ply:GetSubRole() ~= ROLE_DEFECTIVE and target:GetSubRole() == ROLE_DEFECTIVE then
-			if ply:GetTeam() ~= TEAM_TRAITOR or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() then
+			if ply:GetTeam() ~= TEAM_TRAITOR or not GetConVar("ttt2_defective_can_be_seen_by_traitors"):GetBool() or spy_jam then
 				--Make the defective look like a detective to all non-traitors.
 				return target.ttt2_def_visage or ROLE_DETECTIVE, TEAM_INNOCENT
 			else
@@ -581,7 +622,7 @@ if SERVER then
 		
 		--Handle how defectives see traitors
 		if ply:GetSubRole() == ROLE_DEFECTIVE and target:GetSubRole() ~= ROLE_DEFECTIVE and target:GetTeam() == TEAM_TRAITOR then
-			if GetConVar("ttt2_defective_can_see_traitors"):GetBool() then
+			if GetConVar("ttt2_defective_can_see_traitors"):GetBool() and not spy_jam then
 				--Allow for the defective to see their fellow traitors.
 				return target:GetSubRole(), target:GetTeam()
 			else
@@ -592,7 +633,7 @@ if SERVER then
 		
 		--Handle how defectives see other defectives
 		if ply:GetSubRole() == ROLE_DEFECTIVE and target:GetSubRole() == ROLE_DEFECTIVE then
-			if GetConVar("ttt2_defective_can_see_defectives"):GetBool() then
+			if GetConVar("ttt2_defective_can_see_defectives"):GetBool() and not spy_jam then
 				return ROLE_DEFECTIVE, TEAM_TRAITOR
 			else
 				return target.ttt2_def_visage or ROLE_DETECTIVE, TEAM_INNOCENT
@@ -673,6 +714,12 @@ if SERVER then
 	hook.Add("TTT2PostPlayerDeath", "DefectivePostPlayerDeath", function (victim, inflictor, attacker)
 		if GetRoundState() ~= ROUND_ACTIVE or not IsValid(victim) or not victim:IsPlayer() then
 			return
+		end
+		
+		--If a spy dies then we will want to see if we can reveal visages, and update any role who has been masked by the Spy
+		if DEF_SETUP_COMPLETE and ROLE_SPY and victim:GetSubRole() == ROLE_SPY then
+			InformPlayersOfVisages()
+			SendFullStateUpdate()
 		end
 		
 		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
@@ -783,7 +830,8 @@ if SERVER then
 	end)
 	
 	local function ResetDefectiveDataForServer()
-		def_doing_setup_logic = false
+		DEF_DOING_SETUP_LOGIC = false
+		DEF_SETUP_COMPLETE = false
 		NUM_PLYS_AT_ROUND_BEGIN = 0
 		DET_VISAGE_LIST = nil
 		DET_VISAGE_LIST_TOTAL_WEIGHT = 0
