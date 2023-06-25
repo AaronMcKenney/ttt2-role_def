@@ -10,6 +10,7 @@ L["ttt2_desc_" .. DEFECTIVE.name] = [[You are Defective! A Defective plays in th
 
 -- OTHER ROLE LANGUAGE STRINGS
 L["inform_everyone_" .. DEFECTIVE.name] = "Someone is Defective!"
+L["inform_everyone_spy_" .. DEFECTIVE.name] = "Someone is Defective! Someone is a Spy!"
 L["inform_visage_" .. DEFECTIVE.name] = "You have been disguised as a {role}"
 L["inform_visage_generic_" .. DEFECTIVE.name] = "Defective {name} is disguised as a {role}"
 L["visage_display_" .. DEFECTIVE.name] = "Disguised as a {role}"

@@ -452,14 +452,17 @@ if SERVER then
 		
 		--Only send popup here, as opposed to also sending it on TTT2UpdateSubrole, as doing so could reveal the newly created defective.
 		if GetConVar("ttt2_defective_inform_everyone"):GetBool() and AtLeastOneDetExists() then
+			local spy_jam = SpyIsJamming()
 			if m ~= SPECIAL_DET_MODE.VISAGE then
 				net.Start("TTT2DefectiveInformEveryone")
+				net.WriteBool(spy_jam)
 				net.Broadcast()
 			else
 				--Don't send the popup to Defectives, as we've already sent a more important pop up in the DisguiseDefectives call to inform them of their visage.
 				for _, ply in ipairs(player.GetAll()) do
 					if ply:GetSubRole() ~= ROLE_DEFECTIVE then
 						net.Start("TTT2DefectiveInformEveryone")
+						net.WriteBool(spy_jam)
 						net.Send(ply)
 					end
 				end
@@ -589,6 +592,9 @@ if SERVER then
 				if GetConVar("ttt2_defective_can_see_traitors"):GetBool() and not spy_jam then
 					--Allow for the defective to see their fellow traitors.
 					tbl[ply_i] = {ply_i:GetSubRole(), ply_i:GetTeam()}
+				elseif GetConVar("ttt2_defective_can_see_traitors"):GetBool() and spy_jam then
+					--If a spy is jamming special roles, then all non-defective traitors look like regular traitors
+					tbl[ply_i] = {ROLE_TRAITOR, TEAM_TRAITOR}
 				else
 					--Force all traitors to look like none role to the defective
 					tbl[ply_i] = {ROLE_NONE, TEAM_NONE}
@@ -596,8 +602,8 @@ if SERVER then
 			end
 			
 			--Handle how defectives see other defectives
-			if ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:GetSubRole() == ROLE_DEFECTIVE and not spy_jam then
-				if GetConVar("ttt2_defective_can_see_defectives"):GetBool() then
+			if ply:GetSubRole() == ROLE_DEFECTIVE and ply_i:GetSubRole() == ROLE_DEFECTIVE then
+				if GetConVar("ttt2_defective_can_see_defectives"):GetBool() and not spy_jam then
 					tbl[ply_i] = {ROLE_DEFECTIVE, TEAM_TRAITOR}
 				else
 					tbl[ply_i] = {ply_i.ttt2_def_visage or ROLE_DETECTIVE, TEAM_INNOCENT}
@@ -625,6 +631,9 @@ if SERVER then
 			if GetConVar("ttt2_defective_can_see_traitors"):GetBool() and not spy_jam then
 				--Allow for the defective to see their fellow traitors.
 				return target:GetSubRole(), target:GetTeam()
+			elseif GetConVar("ttt2_defective_can_see_traitors"):GetBool() and spy_jam then
+				--If a spy is jamming special roles, then all non-defective traitors look like regular traitors
+				return ROLE_TRAITOR, TEAM_TRAITOR
 			else
 				--Force all traitors to look like none role to the defective
 				return ROLE_NONE, TEAM_NONE
@@ -862,8 +871,13 @@ if CLIENT then
 	
 	net.Receive("TTT2DefectiveInformEveryone", function()
 		local client = LocalPlayer()
+		local spy_jam = net.ReadBool()
 
-		EPOP:AddMessage({text = LANG.GetTranslation("inform_everyone_" .. DEFECTIVE.name), color = DEFECTIVE.color}, "", 6)
+		if spy_jam then
+			EPOP:AddMessage({text = LANG.GetTranslation("inform_everyone_spy_" .. DEFECTIVE.name), color = DEFECTIVE.color}, "", 6)
+		else
+			EPOP:AddMessage({text = LANG.GetTranslation("inform_everyone_" .. DEFECTIVE.name), color = DEFECTIVE.color}, "", 6)
+		end
 	end)
 	
 	net.Receive("TTT2DefectiveInformVisage", function()
