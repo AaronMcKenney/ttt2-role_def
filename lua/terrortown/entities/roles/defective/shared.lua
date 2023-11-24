@@ -264,7 +264,6 @@ if SERVER then
 		local demote_pct = GetConVar("ttt2_defective_demote_detective_pct"):GetFloat()
 		
 		local r = math.random()
-		--print("DEF_DEBUG GetNumDetectiveDemotions: Roll of " .. r .. " vs. demote_pct of " .. demote_pct)
 		if r <= demote_pct then
 			for _, ply in pairs(player.GetAll()) do
 				if ply:GetSubRole() == ROLE_DEFECTIVE then
@@ -272,6 +271,8 @@ if SERVER then
 				end
 			end
 		end
+
+		--print("DEF_DEBUG GetNumDetectiveDemotions: Roll of " .. r .. " vs. demote_pct of " .. demote_pct .. ". There will be " .. num_demotions .. " demotion(s) this round")
 		
 		return num_demotions
 	end
@@ -454,18 +455,26 @@ if SERVER then
 		end
 		
 		local num_demotions = GetNumDetectiveDemotions()
-		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
-		if m == SPECIAL_DET_MODE.JAM or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) or num_demotions > 0 then
-			--Force all special detectives to be normal detectives, in case they have some special equipment or ability that could instantly be used to make them trustworthy.
-			--Also force detectives to be innocent, if demotions are required
+		if num_demotions > 0 then
+			--Force detectives to be innocent, if demotions are requested
 			--Player table is shuffled to randomize who gets demoted.
 			for _, ply in pairs(table.Shuffle(player.GetAll())) do
-				if num_demotions > 0 and ply:GetBaseRole() == ROLE_DETECTIVE then
+				if ply:GetBaseRole() == ROLE_DETECTIVE then
 					JamDetective(ply, ply:GetBaseRole(), ply:GetSubRole(), JAM_DET_MODE.INNO)
 					num_demotions = num_demotions - 1
-				else
-					JamDetective(ply, ply:GetBaseRole(), ply:GetSubRole(), JAM_DET_MODE.BASE_DET)
 				end
+
+				if num_demotions <= 0 then
+					break
+				end
+			end
+		end
+
+		local m = GetConVar("ttt2_defective_special_det_handling_mode"):GetInt()
+		if m == SPECIAL_DET_MODE.JAM or (m == SPECIAL_DET_MODE.JAM_TEMP and AtLeastOneDefLives()) then
+			--Force all special detectives to be normal detectives, in case they have some special equipment or ability that could instantly be used to make them trustworthy.
+			for _, ply in pairs(player.GetAll()) do
+				JamDetective(ply, ply:GetBaseRole(), ply:GetSubRole(), JAM_DET_MODE.BASE_DET)
 			end
 		elseif m == SPECIAL_DET_MODE.VISAGE then
 			CalculateDetectiveVisages()
