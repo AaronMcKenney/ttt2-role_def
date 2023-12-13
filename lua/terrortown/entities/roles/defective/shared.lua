@@ -1019,6 +1019,92 @@ if CLIENT then
 			visage_role_data.ltcolor
 		)
 	end)
+
+	-------------
+	-- CONVARS --
+	-------------
+	function ROLE:AddToSettingsMenu(parent)
+		local form = vgui.CreateTTT2Form(parent, "header_roles_additional")
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_defective_inform_everyone",
+			label = "label_defective_inform_everyone"
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_defective_shop_order_prevention",
+			label = "label_defective_shop_order_prevention"
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_defective_detective_immunity",
+			label = "label_defective_detective_immunity"
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_defective_can_see_traitors",
+			label = "label_defective_can_see_traitors"
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_defective_can_be_seen_by_traitors",
+			label = "label_defective_can_be_seen_by_traitors"
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_defective_can_see_defectives",
+			label = "label_defective_can_see_defectives"
+		})
+
+		form:MakeComboBox({
+			serverConvar = "ttt2_defective_corpse_reveal_mode",
+			label = "label_defective_corpse_reveal_mode",
+			choices = {{
+				value = 0,
+				title = LANG.GetTranslation("label_defective_corpse_reveal_mode_0")
+			},{
+				value = 1,
+				title = LANG.GetTranslation("label_defective_corpse_reveal_mode_1")
+			},{
+				value = 2,
+				title = LANG.GetTranslation("label_defective_corpse_reveal_mode_2")
+			},{
+				value = 3,
+				title = LANG.GetTranslation("label_defective_corpse_reveal_mode_3")
+			}}
+		})
+
+		form:MakeComboBox({
+			serverConvar = "ttt2_defective_special_det_handling_mode",
+			label = "label_defective_special_det_handling_mode",
+			choices = {{
+				value = 0,
+				title = LANG.GetTranslation("label_defective_special_det_handling_mode_0")
+			},{
+				value = 1,
+				title = LANG.GetTranslation("label_defective_special_det_handling_mode_1")
+			},{
+				value = 2,
+				title = LANG.GetTranslation("label_defective_special_det_handling_mode_2")
+			},{
+				value = 3,
+				title = LANG.GetTranslation("label_defective_special_det_handling_mode_3")
+			}}
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_defective_disable_spawn_if_no_detective",
+			label = "label_defective_disable_spawn_if_no_detective"
+		})
+		
+		form:MakeSlider({
+			serverConvar = "ttt2_defective_demote_detective_pct",
+			label = "label_defective_demote_detective_pct",
+			min = 0.0,
+			max = 1.0,
+			decimal = 2
+		})
+	end
 end
 
 ----------
