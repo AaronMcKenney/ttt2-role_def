@@ -861,7 +861,7 @@ if SERVER then
 		for _, ply in pairs(player.GetAll()) do
 			local ply_corpse = ply.server_ragdoll
 			
-			if not ply_corpse or not ply:GetNWBool("body_found", false) then 
+			if not IsValid(ply_corpse) or ply:TTT2NETGetBool("body_found", false) then
 				continue
 			end
 			
