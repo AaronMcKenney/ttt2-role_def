@@ -562,9 +562,7 @@ if SERVER then
 	
 	hook.Add("TTT2UpdateTeam", "DefectiveUpdateTeam", function(ply, oldTeam, newTeam)
 		if DEF_SETUP_COMPLETE and AtLeastOneDefExists() then
-			if ROLE_SPY and (oldSubrole == ROLE_SPY or subrole == ROLE_SPY) then
-				 UpdateSpyJam()
-			end
+			UpdateSpyJam()
 			
 			--Resend visages in case a player changes to or from a team that can see the Defective's true identity
 			InformPlayersOfVisages()
@@ -756,7 +754,6 @@ if SERVER then
 		
 		if ROLE_SPY and (victim:GetSubRole() == ROLE_SPY) then
 			UpdateSpyJam()
-			send_full_state_update = true
 		end
 		
 		--If a spy is no longer jamming then we will want to see if we can reveal visages, and update any Defective who has been masked by the Spy
@@ -830,7 +827,7 @@ if SERVER then
 	
 	hook.Add("TTT2ConfirmPlayer", "DefectiveConfirmPlayer", function(confirmed, finder, corpse)
 		--The Spy only checks for ttt2_spy_confirm_as_traitor in its hook, so we mimic that here.
-		if ROLE_SPY and GetConVar("ttt2_spy_confirm_as_traitor"):GetBool() then
+		if ROLE_SPY and SPY_IS_JAMMING_CORPSES then
 			return
 		end
 		
