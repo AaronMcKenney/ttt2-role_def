@@ -1,5 +1,6 @@
 --ConVar syncing
 CreateConVar("ttt2_defective_inform_everyone", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})
+CreateConVar("ttt2_defective_color_mode", "0", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})
 CreateConVar("ttt2_defective_shop_order_prevention", "0", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})
 CreateConVar("ttt2_defective_detective_immunity", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})
 CreateConVar("ttt2_defective_can_see_traitors", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})

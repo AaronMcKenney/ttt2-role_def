@@ -28,6 +28,9 @@ L["prevent_order_" .. DEFECTIVE.name] = "Kann keine Items kaufen, die Defektive 
 
 -- CONVAR STRINGS
 --L["label_defective_inform_everyone"] = "Display pop-up message at round start"
+--L["label_defective_color_mode"] = "The Defective's role color"
+--L["label_defective_color_mode_0"] = "0: Default color (purple)"
+--L["label_defective_color_mode_1"] = "1: Traitor color (a shade of red)"
 --L["label_defective_shop_order_prevention"] = "Prevent Det from purchasing non-Def items"
 --L["label_defective_detective_immunity"] = "Prevent Defs and Dets from harming one another where possible"
 --L["label_defective_can_see_traitors"] = "The Def can see their fellow team mates"

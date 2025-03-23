@@ -7,10 +7,18 @@ if SERVER then
 end
 
 function ROLE:PreInitialize()
+	--CONSTANTS/GLOBALS
+	--ttt2_defective_color_mode enum
+	local COLOR_MODE = {DEFAULT = 0, RED = 1}
+	
 	--The Detective's color
 	--self.color = Color(31, 77, 191, 255)
 	--The Defective's color
-	self.color = Color(58, 27, 169, 255)
+	if GetConVar("ttt2_defective_color_mode"):GetInt() == COLOR_MODE.RED then
+		self.color = Color(169, 27, 67, 255)
+	else --COLOR_MODE.DEFAULT
+		self.color = Color(58, 27, 169, 255)
+	end
 	
 	self.abbr = "def"
 	
@@ -1026,6 +1034,18 @@ if CLIENT then
 		form:MakeCheckBox({
 			serverConvar = "ttt2_defective_inform_everyone",
 			label = "label_defective_inform_everyone"
+		})
+
+		form:MakeComboBox({
+			serverConvar = "ttt2_defective_color_mode",
+			label = "label_defective_color_mode",
+			choices = {{
+				value = 0,
+				title = LANG.GetTranslation("label_defective_color_mode_0")
+			},{
+				value = 1,
+				title = LANG.GetTranslation("label_defective_color_mode_1")
+			}}
 		})
 
 		form:MakeCheckBox({
