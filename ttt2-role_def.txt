@@ -39,7 +39,7 @@ Convars are variables that are introduced to allow server owners to customize th
 [code]# Send a popup message if there's a defective and detective at the start of the round?
   ttt2_defective_inform_everyone [0/1] (default: 1)
 # What is the Defective's role color?
-  label_defective_color_mode [0..1] (default: 0)
+  ttt2_defective_color_mode [0..1] (default: 0)
   # 0: Default color (purple)
   # 1: Traitor color (a shade of red)
 # Prevent the detective from purchasing items that aren't in the defective's shop?
